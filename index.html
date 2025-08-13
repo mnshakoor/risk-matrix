@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Risk Matrix - Likelihood x Impact</title>
-  <meta name="description" content="Interactive 5x5 risk matrix with import-export, filtering, drill-down, light theme, and CARVER helper." />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <meta name="description" content="Interactive 5x5 risk matrix with import-export, filtering, drill-down, light theme, and CARVER helper.">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  
+  <!-- External Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  
   <style>
+    /* CSS Variables for Theme Support */
     :root {
       --bg: #0b0c10;
       --panel: #111218;
@@ -23,9 +27,10 @@
       --table-head: #121623;
       --grid-gap: 12px;
       --hover: #0e131f;
-      --chip-border: rgba(255,255,255,.25);
+      --chip-border: rgba(255, 255, 255, 0.25);
     }
-    /* Light theme variables */
+
+    /* Light Theme Variables */
     html[data-theme="light"] {
       --bg: #f7f7fb;
       --panel: #ffffff;
@@ -35,25 +40,53 @@
       --border: #e5e7eb;
       --table-head: #f1f5f9;
       --hover: #f3f4f6;
-      --chip-border: rgba(0,0,0,.15);
+      --chip-border: rgba(0, 0, 0, 0.15);
     }
 
-    * { box-sizing: border-box }
-    html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial }
-    a { color: var(--accent); text-decoration: none }
-    .wrap {
-      display: grid;
-      grid-template-rows: auto auto auto 1fr auto;
-      height: 100%;
+    /* Base Styles */
+    * {
+      box-sizing: border-box;
     }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    /* Layout */
+    .wrap {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Header */
     header {
       padding: 14px 16px;
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(0,0,0,0.05), transparent);
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), transparent);
     }
-    header h1 { margin: 0 0 6px 0; font-size: 18px; letter-spacing: .2px }
-    .subtle { color: var(--muted); font-size: 13px }
 
+    header h1 {
+      margin: 0 0 6px 0;
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* Controls Section */
     .controls {
       display: grid;
       grid-template-columns: 1fr;
@@ -62,50 +95,99 @@
       background: var(--panel);
       border-bottom: 1px solid var(--border);
     }
-    .controls .row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center }
-    .controls label { font-size: 13px; color: var(--muted); margin-right: 6px }
+
+    .controls .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+      align-items: center;
+    }
+
+    .controls label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-right: 6px;
+    }
+
     .controls input[type="number"],
     .controls input[type="text"],
     .controls select {
-      background: transparent; border: 1px solid var(--border); color: var(--text);
-      padding: 6px 8px; border-radius: 8px; font-size: 14px; min-width: 120px
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      min-width: 120px;
     }
-    .controls input[type="checkbox"] { transform: translateY(1px) }
-    .controls button {
-      background: transparent; border: 1px solid var(--border); color: var(--text);
-      padding: 6px 10px; border-radius: 8px; font-size: 14px; cursor: pointer
-    }
-    .controls button:hover { background: var(--hover) }
-    .controls .spacer { flex: 1 1 auto }
 
-    /* CARVER helper panel */
+    .controls input[type="checkbox"] {
+      transform: translateY(1px);
+    }
+
+    .controls button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .controls button:hover {
+      background: var(--hover);
+    }
+
+    .controls .spacer {
+      flex: 1 1 auto;
+    }
+
+    /* CARVER Helper Panel */
     .helper {
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       padding: 8px 16px 12px 16px;
       display: none;
     }
-    .helper.open { display: block; margin-bottom: 12px }
+
+    .helper.open {
+      display: block;
+      margin-bottom: 12px;
+    }
+
     .helper .grid {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
       gap: 8px;
       align-items: end;
     }
-    .helper .grid .col-span-2 { grid-column: span 2 / span 2 }
-    .helper .grid .col-span-3 { grid-column: span 3 / span 3 }
-    .helper .grid .col-span-4 { grid-column: span 4 / span 4 }
-    .helper .grid .col-span-6 { grid-column: span 6 / span 6 }
-    .helper .grid .col-span-12 { grid-column: span 12 / span 12 }
-    .helper .note { color: var(--muted); font-size: 12px; margin-top: 6px }
 
+    .helper .grid .col-span-2 { grid-column: span 2 / span 2; }
+    .helper .grid .col-span-3 { grid-column: span 3 / span 3; }
+    .helper .grid .col-span-4 { grid-column: span 4 / span 4; }
+    .helper .grid .col-span-5 { grid-column: span 5 / span 5; }
+    .helper .grid .col-span-6 { grid-column: span 6 / span 6; }
+    .helper .grid .col-span-8 { grid-column: span 8 / span 8; }
+    .helper .grid .col-span-12 { grid-column: span 12 / span 12; }
+
+    .helper .note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    /* Main Content Area */
     .main {
       display: grid;
       grid-template-columns: 1fr 360px;
       gap: var(--grid-gap);
       padding: var(--grid-gap);
       min-height: 0;
+      flex: 1;
     }
+
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -113,47 +195,145 @@
       padding: 12px;
       min-height: 0;
     }
-    #matrixCard { display: grid; grid-template-rows: 1fr auto }
-    canvas { width: 100% !important; height: 100% !important; border-radius: 10px; }
 
-    .legend { display:flex; gap:10px; align-items:center; padding:8px 6px 0 6px; flex-wrap:wrap; }
-    .legend .chip { width:14px; height:14px; border-radius:4px; display:inline-block; border:1px solid var(--chip-border) }
-    .legend .item { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted) }
+    #matrixCard {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      height: 500px;
+    }
 
-    .list { display:flex; flex-direction:column; gap:8px; max-height: calc(100vh - 260px); overflow:auto; padding-right:4px }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 10px;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 6px 0 6px;
+      flex-wrap: wrap;
+    }
+
+    .legend .chip {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-block;
+      border: 1px solid var(--chip-border);
+    }
+
+    .legend .item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Risk Items List */
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
     .riskItem {
-      border: 1px solid var(--border); border-radius:10px; padding:8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
       background: transparent;
     }
-    .riskItem h4 { margin:0 0 4px 0; font-size:14px }
-    .riskItem .meta { font-size:12px; color: var(--muted) }
 
-    .filters { display:flex; gap:8px; margin: 8px 0 6px 0; flex-wrap: wrap }
-    .muted { color: var(--muted) }
+    .riskItem h4 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+    }
 
-    .tableWrap { overflow:auto; max-height: 40vh; border:1px solid var(--border); border-radius: 10px }
-    table { border-collapse:collapse; width:100%; min-width:720px; font-size: 13px }
-    th, td { border-bottom:1px solid var(--border); padding:8px 10px; text-align:left }
-    th { position: sticky; top:0; background: var(--table-head); z-index:1; cursor: pointer }
-    tr:hover td { background: var(--hover) }
+    .riskItem .meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
 
-    footer { padding: 8px 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px }
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0 6px 0;
+      flex-wrap: wrap;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    /* Table Styles */
+    .tableWrap {
+      overflow: auto;
+      max-height: 300px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 720px;
+      font-size: 13px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--table-head);
+      z-index: 1;
+      cursor: pointer;
+    }
+
+    tr:hover td {
+      background: var(--hover);
+    }
+
+    /* Footer */
+    footer {
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Responsive Design */
     @media (max-width: 1100px) {
-      .main { grid-template-columns: 1fr }
+      .main {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
+    <!-- Header Section -->
     <header>
       <h1>Risk Matrix - Likelihood x Impact</h1>
       <div class="subtle">Interactive 5x5 with import-export, filtering, drill-down, theme toggle, and CARVER mapping helper.</div>
     </header>
 
-    <!-- Core controls -->
+    <!-- Core Controls -->
     <div class="controls" role="region" aria-label="Controls">
       <div class="row" aria-label="Data actions">
-        <input id="fileInput" type="file" accept=".json,.csv" aria-label="Upload JSON or CSV" />
+        <input id="fileInput" type="file" accept=".json,.csv" aria-label="Upload JSON or CSV">
         <button id="btnExportJSON" title="Download JSON">Export JSON</button>
         <button id="btnExportCSV" title="Download CSV">Export CSV</button>
         <button id="btnExportPDF" title="Export PDF report">Export PDF</button>
@@ -168,15 +348,24 @@
         <button id="btnPng" title="Download chart as PNG">Download PNG</button>
         <button id="btnShare" title="Copy shareable URL">Copy Share URL</button>
       </div>
+      
       <div class="row" aria-label="Filters">
         <label for="search">Search</label>
-        <input id="search" type="text" placeholder="Filter by name or notes" />
+        <input id="search" type="text" placeholder="Filter by name or notes">
         <label for="sectorSel">Sector</label>
-        <select id="sectorSel"><option value="">All</option></select>
+        <select id="sectorSel">
+          <option value="">All</option>
+        </select>
         <label for="typeSel">Type</label>
-        <select id="typeSel"><option value="">All</option></select>
-        <label><input id="toggleLabels" type="checkbox" /> Show labels inside cells</label>
-        <label><input id="toggleCategorical" type="checkbox" checked /> Show categorical only tag</label>
+        <select id="typeSel">
+          <option value="">All</option>
+        </select>
+        <label>
+          <input id="toggleLabels" type="checkbox"> Show labels inside cells
+        </label>
+        <label>
+          <input id="toggleCategorical" type="checkbox" checked> Show categorical only tag
+        </label>
         <label for="gridSel">Grid</label>
         <select id="gridSel">
           <option value="5" selected>5x5</option>
@@ -189,6 +378,7 @@
         </select>
         <button id="btnToggleHelper" title="Toggle CARVER helper">CARVER helper</button>
       </div>
+      
       <div class="row" aria-label="Thresholds">
         <span class="muted">Tier thresholds by product v = L x I:</span>
         <label>Low max <input id="thrLow" type="number" min="1" max="25" step="1" value="5"></label>
@@ -198,7 +388,7 @@
       </div>
     </div>
 
-    <!-- CARVER helper -->
+    <!-- CARVER Helper -->
     <div id="helper" class="helper" role="region" aria-label="CARVER helper">
       <div class="grid">
         <div class="col-span-3">
@@ -210,7 +400,9 @@
           </label>
         </div>
         <div class="col-span-3">
-          <label>Name<br><input id="hName" type="text" placeholder="Risk name" /></label>
+          <label>Name<br>
+            <input id="hName" type="text" placeholder="Risk name">
+          </label>
         </div>
         <div class="col-span-2">
           <label>Sector<br>
@@ -236,28 +428,42 @@
             </select>
           </label>
         </div>
-        <div class="col-span-5">
-          <label>Notes<br><input id="hNotes" type="text" placeholder="Optional notes" /></label>
+        <div class="col-span-2">
+          <label>Notes<br>
+            <input id="hNotes" type="text" placeholder="Optional notes">
+          </label>
         </div>
 
-        <!-- CARVER scores -->
+        <!-- CARVER Scores -->
         <div class="col-span-2">
-          <label>C (1-5)<br><input id="hC" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>C (1-5)<br>
+            <input id="hC" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
         <div class="col-span-2">
-          <label>A (1-5)<br><input id="hA" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>A (1-5)<br>
+            <input id="hA" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
         <div class="col-span-2">
-          <label>R (Recuperability 1-5)<br><input id="hR" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>R (Recuperability 1-5)<br>
+            <input id="hR" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
         <div class="col-span-2">
-          <label>V (1-5)<br><input id="hV" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>V (1-5)<br>
+            <input id="hV" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
         <div class="col-span-2">
-          <label>E (1-5)<br><input id="hE" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>E (1-5)<br>
+            <input id="hE" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
         <div class="col-span-2">
-          <label>Rz (1-5)<br><input id="hRz" type="number" min="1" max="5" step="1" value="3" /></label>
+          <label>Rz (1-5)<br>
+            <input id="hRz" type="number" min="1" max="5" step="1" value="3">
+          </label>
         </div>
 
         <div class="col-span-12">
@@ -268,12 +474,16 @@
         </div>
 
         <div class="col-span-2">
-          <label>L result<br><input id="hL" type="number" min="1" max="5" step="1" value="3" readonly /></label>
+          <label>L result<br>
+            <input id="hL" type="number" min="1" max="5" step="1" value="3" readonly>
+          </label>
         </div>
         <div class="col-span-2">
-          <label>I result<br><input id="hI" type="number" min="1" max="5" step="1" value="3" readonly /></label>
+          <label>I result<br>
+            <input id="hI" type="number" min="1" max="5" step="1" value="3" readonly>
+          </label>
         </div>
-        <div class="col-span-8" style="display:flex;gap:8px;align-items:end;">
+        <div class="col-span-8" style="display: flex; gap: 8px; align-items: end;">
           <button id="hAdd" type="button">Add to register</button>
           <button id="hPrefill" type="button">Prefill Add risk form</button>
         </div>
@@ -284,21 +494,27 @@
       </div>
     </div>
 
+    <!-- Main Content -->
     <div class="main">
+      <!-- Matrix Chart -->
       <section id="matrixCard" class="card" aria-label="Matrix chart">
         <canvas id="riskMatrix" aria-label="Risk matrix heatmap" role="img"></canvas>
         <div class="legend" id="legend"></div>
       </section>
 
+      <!-- Sidebar -->
       <aside class="card" aria-label="Drill-down and add item">
-        <h3 style="margin:4px 0 6px 0;font-size:16px">Cell items</h3>
+        <!-- Cell Items -->
+        <h3 style="margin: 4px 0 6px 0; font-size: 16px;">Cell items</h3>
         <div class="muted" id="cellTitle">Click a cell to list items at that Likelihood and Impact.</div>
         <div class="list" id="cellList" aria-live="polite"></div>
 
-        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px 0" />
-        <h3 style="margin:4px 0 6px 0;font-size:16px">Add risk</h3>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 10px 0 8px 0;">
+        
+        <!-- Add Risk Form -->
+        <h3 style="margin: 4px 0 6px 0; font-size: 16px;">Add risk</h3>
         <form id="addForm" class="filters">
-          <input name="name" required type="text" placeholder="Name" />
+          <input name="name" required type="text" placeholder="Name">
           <select name="sector" required>
             <option value="">Sector</option>
             <option>NGO/Humanitarian</option>
@@ -316,14 +532,16 @@
             <option>Opportunity</option>
             <option>Dependency</option>
           </select>
-          <input name="likelihood" id="formL" type="number" min="1" max="5" step="1" required placeholder="L 1-5" />
-          <input name="impact" id="formI" type="number" min="1" max="5" step="1" required placeholder="I 1-5" />
-          <input name="notes" id="formNotes" type="text" placeholder="Notes" />
+          <input name="likelihood" id="formL" type="number" min="1" max="5" step="1" required placeholder="L 1-5">
+          <input name="impact" id="formI" type="number" min="1" max="5" step="1" required placeholder="I 1-5">
+          <input name="notes" id="formNotes" type="text" placeholder="Notes">
           <button type="submit">Add</button>
         </form>
 
-        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px 10px" />
-        <h3 style="margin:4px 0 6px 0;font-size:16px">Risk register</h3>
+        <hr style="border: none; border-top: 1px solid var(--border); margin: 10px 0 8px 0;">
+        
+        <!-- Risk Register -->
+        <h3 style="margin: 4px 0 6px 0; font-size: 16px;">Risk register</h3>
         <div class="tableWrap" aria-label="Risk register table">
           <table id="regTable">
             <thead>
@@ -344,18 +562,21 @@
         </div>
       </aside>
     </div>
-  <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+
+    <!-- Footer -->
     <footer>
       Built for static hosting. Data is stored in your browser and can be exported. Use the share button to encode state into the URL.
     </footer>
   </div>
 
   <script>
-    /* ---------- Theme handling ---------- */
+    /* ---------- Theme Handling ---------- */
     const THEME_KEY = "risk-matrix-theme";
+    
     function systemPrefersDark() {
       return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
     }
+    
     function applyTheme(mode) {
       const html = document.documentElement;
       if (mode === "auto") {
@@ -365,14 +586,17 @@
       }
       localStorage.setItem(THEME_KEY, mode);
     }
+    
     function initTheme() {
       const sel = document.getElementById("themeSel");
       const saved = localStorage.getItem(THEME_KEY) || "auto";
       sel.value = saved;
       applyTheme(saved);
+      
       window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
         if (sel.value === "auto") applyTheme("auto");
       });
+      
       sel.addEventListener("change", e => applyTheme(e.target.value));
     }
 
@@ -381,12 +605,14 @@
       classic: { Negligible:"#3b82f6", Low:"#22c55e", Moderate:"#eab308", High:"#fb923c", Critical:"#ef4444" },
       colorblind: { Negligible:"#7e7eff", Low:"#55a868", Moderate:"#ddb310", High:"#e17c05", Critical:"#cc3311" }
     };
+
     function computeTier(v, thr) {
       if (v <= thr.low) return "Low";
       if (v <= thr.mod) return "Moderate";
       if (v <= thr.high) return "High";
       return "Critical";
     }
+
     function parseCSV(text) {
       const rows = text.trim().split(/\r?\n/);
       const header = rows.shift().split(",").map(s => s.trim());
@@ -397,6 +623,7 @@
         return obj;
       });
     }
+
     function toCSV(rows) {
       if (!rows.length) return "";
       const head = Object.keys(rows[0]);
@@ -404,6 +631,7 @@
       for (const r of rows) lines.push(head.map(k => String(r[k] ?? "").replace(/[\r\n,]/g," ")).join(","));
       return lines.join("\n");
     }
+
     function saveBlob(name, mime, data) {
       const blob = new Blob([data], {type: mime});
       const a = document.createElement("a");
@@ -433,6 +661,7 @@
       { name:"Sahel regional", sector:"Security/Armed Conflict", type:"Threat", likelihood:3, impact:4, notes:"Non-state actor activity" },
       { name:"Sudan conflict", sector:"Security/Armed Conflict", type:"Threat", likelihood:4, impact:5, notes:"Escalated kinetic risk" }
     ];
+
     const saved = localStorage.getItem("risk-matrix-data");
     if (saved) {
       try { Object.assign(state, JSON.parse(saved)); } catch {}
@@ -464,10 +693,12 @@
         return { ...a, likelihood:L, impact:I, v, tier };
       });
     }
+
     function clampInt(v, min, max) {
       const n = Math.round(Number(v) || 0);
       return Math.max(min, Math.min(max, n));
     }
+
     function applyFilters(list) {
       const f = state.filters;
       return list.filter(a => {
@@ -480,6 +711,7 @@
         return true;
       });
     }
+
     function gridMap(list) {
       const map = new Map();
       const size = state.gridSize;
@@ -496,6 +728,7 @@
 
     /* ---------- Chart ---------- */
     let chart;
+
     function buildChart() {
       const ctx = document.getElementById("riskMatrix").getContext("2d");
       if (chart) chart.destroy();
@@ -636,6 +869,7 @@
           afterDraw(c) {
             if (!state.showCategorical) return;
             const { ctx } = c;
+            const chartArea = c.chartArea;
             ctx.save();
             ctx.fillStyle = "rgba(100,116,139,.18)";
             ctx.strokeStyle = "rgba(100,116,139,.35)";
@@ -644,11 +878,15 @@
             const padding = 6;
             ctx.font = "12px system-ui, sans-serif";
             const w = ctx.measureText(text).width + padding*2;
-            ctx.fillRect(12, 14, w, 22);
-            ctx.strokeRect(12, 14, w, 22);
+            const h = 22;
+            // Position at lower left of chart area
+            const x = chartArea.left + 12;
+            const y = chartArea.bottom - h - 12;
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeRect(x, y, w, h);
             ctx.fillStyle = "currentColor";
             ctx.globalAlpha = .7;
-            ctx.fillText(text, 12 + padding, 30);
+            ctx.fillText(text, x + padding, y + 16);
             ctx.restore();
           }
         }]
@@ -662,6 +900,7 @@
       const rgba = hexToRgba(base, Math.min(0.15 + count * 0.1, 0.85));
       return rgba;
     }
+
     function hexToRgba(hex, a) {
       const m = hex.replace("#","").match(/.{1,2}/g);
       const [r,g,b] = m.map(h => parseInt(h,16));
@@ -673,9 +912,9 @@
       const el = document.getElementById("legend");
       const t = state.thresholds;
       el.innerHTML = `
-        <div class="item"><span class="chip" style="background:${pal.Low}"></span>Low ≤ ${t.low}</div>
-        <div class="item"><span class="chip" style="background:${pal.Moderate}"></span>Moderate ≤ ${t.mod}</div>
-        <div class="item"><span class="chip" style="background:${pal.High}"></span>High ≤ ${t.high}</div>
+        <div class="item"><span class="chip" style="background:${pal.Low}"></span>Low â‰¤ ${t.low}</div>
+        <div class="item"><span class="chip" style="background:${pal.Moderate}"></span>Moderate â‰¤ ${t.mod}</div>
+        <div class="item"><span class="chip" style="background:${pal.High}"></span>High â‰¤ ${t.high}</div>
         <div class="item"><span class="chip" style="background:${pal.Critical}"></span>Critical > ${t.high}</div>
       `;
     }
@@ -709,7 +948,7 @@
         d.className = "riskItem";
         d.innerHTML = `
           <h4>${escapeHtml(a.name)}</h4>
-          <div class="meta">Sector: ${escapeHtml(a.sector || "")} · Type: ${escapeHtml(a.type || "")}</div>
+          <div class="meta">Sector: ${escapeHtml(a.sector || "")} Â· Type: ${escapeHtml(a.type || "")}</div>
           <div class="meta">L=${a.likelihood}, I=${a.impact}, v=${a.v}, Tier=${a.tier}</div>
           <div class="meta">${escapeHtml(a.notes || "")}</div>
           <div style="margin-top:6px;display:flex;gap:6px">
@@ -768,6 +1007,7 @@
         });
       });
     }
+
     document.querySelectorAll("#regTable th[data-k]").forEach(th => {
       th.addEventListener("click", () => {
         const k = th.dataset.k;
@@ -793,269 +1033,287 @@
       state.filters.search = e.target.value.trim();
       persist(); rebuild();
     });
+
     document.getElementById("sectorSel").addEventListener("change", e => {
       state.filters.sector = e.target.value; persist(); rebuild();
     });
+
     document.getElementById("typeSel").addEventListener("change", e => {
       state.filters.type = e.target.value; persist(); rebuild();
     });
+
     document.getElementById("toggleLabels").addEventListener("change", e => {
       state.showLabels = e.target.checked; persist(); buildChart();
     });
+
     document.getElementById("toggleCategorical").addEventListener("change", e => {
       state.showCategorical = e.target.checked; persist(); buildChart();
     });
+
     document.getElementById("gridSel").addEventListener("change", e => {
-      state.gridSize = Number(e.target.value); persist(); buildChart(); renderCellList();
+      state.gridSize = Number(e.target.value); persist(); rebuild();
     });
+
     document.getElementById("paletteSel").addEventListener("change", e => {
       state.palette = e.target.value; persist(); buildChart();
     });
 
-    ["thrLow","thrMod","thrHigh"].forEach(id => {
-      document.getElementById(id).addEventListener("change", () => {
-        const low = Number(document.getElementById("thrLow").value);
-        const mod = Number(document.getElementById("thrMod").value);
-        const high = Number(document.getElementById("thrHigh").value);
-        state.thresholds = { low: Math.min(low, mod, high), mod: Math.max(low, Math.min(mod, high)), high: Math.max(low, mod, high) };
-        persist(); buildChart(); rebuildTable(); renderCellList(); updateLegend();
-      });
+    document.getElementById("thrLow").addEventListener("change", e => {
+      state.thresholds.low = Number(e.target.value); persist(); rebuild();
+    });
+
+    document.getElementById("thrMod").addEventListener("change", e => {
+      state.thresholds.mod = Number(e.target.value); persist(); rebuild();
+    });
+
+    document.getElementById("thrHigh").addEventListener("change", e => {
+      state.thresholds.high = Number(e.target.value); persist(); rebuild();
+    });
+
+    /* ---------- CARVER helper ---------- */
+    document.getElementById("btnToggleHelper").addEventListener("click", () => {
+      document.getElementById("helper").classList.toggle("open");
+    });
+
+    document.getElementById("hCompute").addEventListener("click", () => {
+      const scale = Number(document.getElementById("hScale").value);
+      const c = Number(document.getElementById("hC").value);
+      const a = Number(document.getElementById("hA").value);
+      const r = Number(document.getElementById("hR").value);
+      const v = Number(document.getElementById("hV").value);
+      const e = Number(document.getElementById("hE").value);
+      const rz = Number(document.getElementById("hRz").value);
+      
+      const normalize = val => scale === 10 ? Math.round(val / 2) : val;
+      const L = Math.round((normalize(a) + normalize(v) + normalize(rz)) / 3);
+      const I = Math.round((normalize(c) + normalize(e) + normalize(r)) / 3);
+      
+      document.getElementById("hL").value = Math.max(1, Math.min(5, L));
+      document.getElementById("hI").value = Math.max(1, Math.min(5, I));
+    });
+
+    document.getElementById("hAdd").addEventListener("click", () => {
+      const name = document.getElementById("hName").value.trim();
+      const sector = document.getElementById("hSector").value;
+      const type = document.getElementById("hType").value;
+      const likelihood = Number(document.getElementById("hL").value);
+      const impact = Number(document.getElementById("hI").value);
+      const notes = document.getElementById("hNotes").value.trim();
+      
+      if (!name || !sector || !type) {
+        alert("Please fill in name, sector, and type.");
+        return;
+      }
+      
+      state.assets.push({ name, sector, type, likelihood, impact, notes });
+      persist();
+      rebuild();
+      
+      document.getElementById("hName").value = "";
+      document.getElementById("hNotes").value = "";
+    });
+
+    document.getElementById("hPrefill").addEventListener("click", () => {
+      const form = document.getElementById("addForm");
+      form.name.value = document.getElementById("hName").value;
+      form.sector.value = document.getElementById("hSector").value;
+      form.type.value = document.getElementById("hType").value;
+      form.likelihood.value = document.getElementById("hL").value;
+      form.impact.value = document.getElementById("hI").value;
+      form.notes.value = document.getElementById("hNotes").value;
     });
 
     /* ---------- Add form ---------- */
     document.getElementById("addForm").addEventListener("submit", e => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      const item = {
-        name: fd.get("name").trim(),
-        sector: fd.get("sector"),
-        type: fd.get("type"),
-        likelihood: clampInt(fd.get("likelihood"),1,5),
-        impact: clampInt(fd.get("impact"),1,5),
-        notes: fd.get("notes").trim()
-      };
-      if (!item.name) return;
-      state.assets.push(item);
-      e.target.reset();
+      const name = fd.get("name").trim();
+      const sector = fd.get("sector");
+      const type = fd.get("type");
+      const likelihood = Number(fd.get("likelihood"));
+      const impact = Number(fd.get("impact"));
+      const notes = fd.get("notes").trim();
+      
+      if (!name || !sector || !type || !likelihood || !impact) {
+        alert("Please fill in all required fields.");
+        return;
+      }
+      
+      state.assets.push({ name, sector, type, likelihood, impact, notes });
       persist();
-      populateSelects();
       rebuild();
-      if (state.selectedCell) renderCellList();
+      e.target.reset();
     });
 
-    /* ---------- Import-export ---------- */
-    document.getElementById("fileInput").addEventListener("change", async e => {
-      const f = e.target.files[0];
-      if (!f) return;
-      const text = await f.text();
-      try {
-        let rows = [];
-        if (f.name.endsWith(".json")) {
-          const j = JSON.parse(text);
-          rows = Array.isArray(j) ? j : (j.assets || []);
-        } else {
-          const objRows = parseCSV(text);
-          rows = objRows.map(r => ({
-            name: r.name || r.asset || r.Asset || "",
-            sector: r.sector || "",
-            type: r.type || "Threat",
-            likelihood: Number(r.likelihood || r.L || r.l || r["Likelihood"] || 1),
-            impact: Number(r.impact || r.I || r.i || r["Impact"] || 1),
-            notes: r.notes || r.Notes || ""
-          }));
+    /* ---------- Import/Export ---------- */
+    document.getElementById("fileInput").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          let data;
+          if (file.name.endsWith(".json")) {
+            data = JSON.parse(reader.result);
+            if (data.assets) {
+              Object.assign(state, data);
+            } else {
+              state.assets = data;
+            }
+          } else if (file.name.endsWith(".csv")) {
+            const parsed = parseCSV(reader.result);
+            state.assets = parsed.map(row => ({
+              name: row.Name || row.name || "",
+              sector: row.Sector || row.sector || "",
+              type: row.Type || row.type || "",
+              likelihood: Number(row.Likelihood || row.likelihood || row.L) || 1,
+              impact: Number(row.Impact || row.impact || row.I) || 1,
+              notes: row.Notes || row.notes || ""
+            }));
+          }
+          persist();
+          rebuild();
+          alert(`Imported ${state.assets.length} items successfully!`);
+        } catch (err) {
+          alert("Error importing file: " + err.message);
         }
-        rows = rows.filter(x => x && x.name);
-        if (!rows.length) { alert("No valid rows found."); return; }
-        state.assets = rows;
-        persist();
-        populateSelects();
-        rebuild();
-        state.selectedCell = null;
-        renderCellList();
-      } catch (err) {
-        console.error(err);
-        alert("Import failed. Ensure correct JSON or CSV format.");
-      } finally {
-        e.target.value = "";
-      }
+      };
+      reader.readAsText(file);
     });
 
     document.getElementById("btnExportJSON").addEventListener("click", () => {
-      const data = JSON.stringify({ assets: state.assets }, null, 2);
-      saveBlob("risk-register.json", "application/json", data);
+      const data = JSON.stringify(state, null, 2);
+      saveBlob(`risk-matrix-${new Date().toISOString().split('T')[0]}.json`, "application/json", data);
     });
+
     document.getElementById("btnExportCSV").addEventListener("click", () => {
       const rows = enrichedAssets().map(a => ({
-        name:a.name, sector:a.sector||"", type:a.type||"",
-        likelihood:a.likelihood, impact:a.impact, v:a.v, tier:a.tier, notes:a.notes||""
+        Name: a.name,
+        Sector: a.sector,
+        Type: a.type,
+        Likelihood: a.likelihood,
+        Impact: a.impact,
+        Product: a.v,
+        Tier: a.tier,
+        Notes: a.notes
       }));
-      saveBlob("risk-register.csv", "text/csv", toCSV(rows));
+      const csv = toCSV(rows);
+      saveBlob(`risk-register-${new Date().toISOString().split('T')[0]}.csv`, "text/csv", csv);
     });
 
-    document.getElementById("btnPng").addEventListener("click", async () => {
-      const url = chart.toBase64Image("image/png", 1);
-      const res = await fetch(url);
-      const blob = await res.blob();
-      saveBlob("risk-matrix.png", "image/png", blob);
-    });
-
-    document.getElementById("btnShare").addEventListener("click", () => {
-      const payload = {
-        assets: state.assets,
-        palette: state.palette,
-        thresholds: state.thresholds,
-        gridSize: state.gridSize,
-        filters: state.filters,
-        showLabels: state.showLabels,
-        showCategorical: state.showCategorical
-      };
-      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const url = `${location.origin}${location.pathname}?data=${b64}`;
-      navigator.clipboard.writeText(url).then(() => alert("Share URL copied to clipboard."));
-    });
-
-    /* ---------- Export PDF and Excel ---------- */
-    document.getElementById("btnExportPDF").addEventListener("click", async () => {
+    document.getElementById("btnExportPDF").addEventListener("click", () => {
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit: "pt", format: "a4" });
-      const pageW = doc.internal.pageSize.getWidth();
-      const margin = 36;
-      // Title
-      doc.setFontSize(14);
-      doc.text("Risk Matrix report", margin, 40);
-      // Chart image
-      const canvas = document.getElementById("riskMatrix");
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const imgW = pageW - margin*2;
-      const imgH = canvas.height * (imgW / canvas.width);
-      doc.addImage(imgData, "PNG", margin, 56, imgW, Math.min(imgH, 360));
-      let y = 56 + Math.min(imgH, 360) + 20;
-      // Table using autoTable
-      const rows = enrichedAssets().map(a => [a.name, a.sector||"", a.type||"", a.likelihood, a.impact, a.v, a.tier, a.notes||""]);
+      const doc = new jsPDF();
+      
+      doc.setFontSize(16);
+      doc.text("Risk Matrix Report", 20, 20);
+      
+      doc.setFontSize(12);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
+      doc.text(`Total Risks: ${state.assets.length}`, 20, 40);
+      
+      const tableData = enrichedAssets().map(a => [
+        a.name, a.sector, a.type, a.likelihood.toString(), 
+        a.impact.toString(), a.v.toString(), a.tier, a.notes || ""
+      ]);
+      
       doc.autoTable({
-        startY: y,
-        head: [["Name","Sector","Type","L","I","v","Tier","Notes"]],
-        body: rows,
-        styles: { fontSize: 8 },
-        theme: "grid",
-        margin: { left: margin, right: margin }
+        head: [["Name", "Sector", "Type", "L", "I", "v", "Tier", "Notes"]],
+        body: tableData,
+        startY: 50,
+        styles: { fontSize: 8 }
       });
-      doc.save("risk-report.pdf");
+      
+      doc.save(`risk-matrix-${new Date().toISOString().split('T')[0]}.pdf`);
     });
 
     document.getElementById("btnExportXLSX").addEventListener("click", () => {
-      const rows = enrichedAssets().map(a => ({
-        name:a.name, sector:a.sector||"", type:a.type||"",
-        likelihood:a.likelihood, impact:a.impact, v:a.v, tier:a.tier, notes:a.notes||""
-      }));
       const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.json_to_sheet(rows, { header:["name","sector","type","likelihood","impact","v","tier","notes"] });
-      XLSX.utils.book_append_sheet(wb, ws1, "Risk Register");
-      // Summary matrix sheet
-      const size = Number(state.gridSize) || 5;
-      const header = ["L\\I"].concat([...Array(size)].map((_,i)=>String(i+1)));
-      const grid = Array.from({length:size}, (_,i)=>Array.from({length:size},(_,j)=>0));
-      enrichedAssets().forEach(a=>{ const L=a.likelihood-1, I=a.impact-1; if(L>=0&&L<size&&I>=0&&I<size) grid[L][I]++; });
-      const matRows = [header];
-      for (let L=1; L<=size; L++) { matRows.push([String(L)].concat(grid[L-1].map(n=>n))); }
-      const ws2 = XLSX.utils.aoa_to_sheet(matRows);
-      XLSX.utils.book_append_sheet(wb, ws2, "Matrix Summary");
-      XLSX.writeFile(wb, "risk-register.xlsx");
+      const wsData = enrichedAssets().map(a => ({
+        Name: a.name,
+        Sector: a.sector,
+        Type: a.type,
+        Likelihood: a.likelihood,
+        Impact: a.impact,
+        Product: a.v,
+        Tier: a.tier,
+        Notes: a.notes
+      }));
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "Risk Register");
+      XLSX.writeFile(wb, `risk-matrix-${new Date().toISOString().split('T')[0]}.xlsx`);
     });
 
-    /* ---------- CARVER helper logic ---------- */
-    function updateScaleConstraints() {
-      const scale = Number(document.getElementById('hScale').value) || 5;
-      ['hC','hA','hR','hV','hE','hRz'].forEach(id => {
-        const el = document.getElementById(id);
-        el.min = 1; el.max = scale; el.step = 1;
-        const v = Math.max(1, Math.min(scale, Number(el.value)||1));
-        el.value = v;
+    document.getElementById("btnPng").addEventListener("click", () => {
+      const canvas = document.getElementById("riskMatrix");
+      html2canvas(canvas).then(canvas => {
+        const link = document.createElement("a");
+        link.download = `risk-matrix-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
       });
-    }
-
-    const helper = document.getElementById("helper");
-    document.getElementById("btnToggleHelper").addEventListener("click", () => {
-      document.body.classList.toggle('helper-open');
-      helper.classList.toggle("open");
-    });
-    function avg3(a,b,c) {
-      const n = (Number(a)||0) + (Number(b)||0) + (Number(c)||0);
-      return Math.round(n / 3);
-    }
-    function computeCARVER() {
-      const scale = Number(document.getElementById("hScale").value) || 5;
-      const C = clampInt(document.getElementById("hC").value,1,scale);
-      const A = clampInt(document.getElementById("hA").value,1,scale);
-      const R = clampInt(document.getElementById("hR").value,1,scale);
-      const V = clampInt(document.getElementById("hV").value,1,scale);
-      const E = clampInt(document.getElementById("hE").value,1,scale);
-      const Rz = clampInt(document.getElementById("hRz").value,1,scale);
-      const avg3 = (x,y,z) => Math.round((Number(x||0)+Number(y||0)+Number(z||0))/3);
-      const norm = (val) => clampInt(Math.round(val / scale * 5), 1, 5);
-      const L = norm(avg3(A,V,Rz));
-      const I = norm(avg3(C,E,R));
-      document.getElementById("hL").value = L;
-      document.getElementById("hI").value = I;
-      return { L, I, C, A, R, V, E, Rz, scale };
-    }
-    document.getElementById("hCompute").addEventListener("click", computeCARVER);
-    document.getElementById("hScale").addEventListener("change", () => { updateScaleConstraints(); computeCARVER(); });
-    updateScaleConstraints();
-
-    document.getElementById("hPrefill").addEventListener("click", () => {
-      const { L, I } = computeCARVER();
-      document.getElementById("formL").value = L;
-      document.getElementById("formI").value = I;
-      const notes = document.getElementById("formNotes");
-      const base = notes.value || "";
-      const detail = `CARVER L=${L} I=${I}`;
-      notes.value = base ? `${base} | ${detail}` : detail;
-      alert("Add risk form prefilled from CARVER results.");
-      window.scrollTo({ top: document.getElementById("addForm").getBoundingClientRect().top + window.scrollY - 20, behavior: "smooth" });
     });
 
-    document.getElementById("hAdd").addEventListener("click", () => {
-      const { L, I } = computeCARVER();
-      const name = document.getElementById("hName").value.trim() || "New risk";
-      const sector = document.getElementById("hSector").value || "";
-      const type = document.getElementById("hType").value || "Threat";
-      const notes = document.getElementById("hNotes").value.trim();
-      const item = { name, sector, type, likelihood: L, impact: I, notes };
-      state.assets.push(item);
-      persist();
-      populateSelects();
-      rebuild();
-      alert("Added to register.");
+    document.getElementById("btnShare").addEventListener("click", () => {
+      const encoded = btoa(JSON.stringify(state));
+      const url = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+      
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          alert("Share URL copied to clipboard!");
+        }).catch(() => {
+          prompt("Copy this URL:", url);
+        });
+      } else {
+        prompt("Copy this URL:", url);
+      }
     });
 
-    /* ---------- Rebuild pipeline ---------- */
+    /* ---------- URL loading ---------- */
+    function loadFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      const dataParam = params.get("data");
+      if (dataParam) {
+        try {
+          const data = JSON.parse(atob(dataParam));
+          Object.assign(state, data);
+          persist();
+        } catch (e) {
+          console.warn("Failed to load data from URL:", e);
+        }
+      }
+    }
+
+    /* ---------- Rebuild all ---------- */
     function rebuild() {
-      document.getElementById("thrLow").value = state.thresholds.low;
-      document.getElementById("thrMod").value = state.thresholds.mod;
-      document.getElementById("thrHigh").value = state.thresholds.high;
       populateSelects();
       buildChart();
       rebuildTable();
+      renderCellList();
     }
 
-    function initControlsFromState() {
-      document.getElementById("paletteSel").value = state.palette;
-      document.getElementById("gridSel").value = String(state.gridSize);
+    /* ---------- Initialize ---------- */
+    function init() {
+      initTheme();
+      loadFromURL();
+      
+      // Sync UI with state
+      document.getElementById("search").value = state.filters.search;
       document.getElementById("toggleLabels").checked = state.showLabels;
       document.getElementById("toggleCategorical").checked = state.showCategorical;
+      document.getElementById("gridSel").value = state.gridSize;
+      document.getElementById("paletteSel").value = state.palette;
       document.getElementById("thrLow").value = state.thresholds.low;
       document.getElementById("thrMod").value = state.thresholds.mod;
       document.getElementById("thrHigh").value = state.thresholds.high;
-      document.getElementById("search").value = state.filters.search || "";
+      
+      rebuild();
     }
 
-    // Init
-    initTheme();
-    initControlsFromState();
-    rebuild();
-    renderCellList();
-    window.addEventListener("resize", () => { if (chart) chart.resize(); });
+    // Start the application
+    document.addEventListener("DOMContentLoaded", init);
   </script>
 </body>
 </html>
+
