@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Matrix Visualization</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #f8f8f8;
+    }
+    #riskMatrix {
+      display: block;
+      width: 95vw !important;   /* Fill most of the screen width */
+      height: 90vh !important;  /* Fill most of the screen height */
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="riskMatrix"></canvas>
+  <script>
+    const ctx = document.getElementById('riskMatrix').getContext('2d');
+    new Chart(ctx, {
+      type: 'matrix',
+      data: {
+        datasets: [{
+          label: 'Risk Matrix',
+          data: [
+            {x: 1, y: 5, v: 1, tier: 'Negligible'},
+            {x: 2, y: 5, v: 2, tier: 'Low'},
+            {x: 1, y: 4, v: 2, tier: 'Low'},
+            {x: 2, y: 4, v: 4, tier: 'Low', example: 'Cote d\'Ivoire'},
+            {x: 3, y: 5, v: 3, tier: 'Low'},
+            {x: 1, y: 3, v: 3, tier: 'Low'},
+            {x: 3, y: 4, v: 6, tier: 'Moderate'},
+            {x: 2, y: 3, v: 6, tier: 'Moderate', example: 'Ghana'},
+            {x: 3, y: 3, v: 9, tier: 'Moderate'},
+            {x: 4, y: 5, v: 4, tier: 'Low'},
+            {x: 1, y: 2, v: 4, tier: 'Low'},
+            {x: 4, y: 4, v: 8, tier: 'Moderate'},
+            {x: 2, y: 2, v: 8, tier: 'Moderate'},
+            {x: 4, y: 3, v: 12, tier: 'High'},
+            {x: 3, y: 2, v: 12, tier: 'High', example: 'Sahel'},
+            {x: 4, y: 2, v: 16, tier: 'High'},
+            {x: 5, y: 5, v: 5, tier: 'Low'},
+            {x: 1, y: 1, v: 5, tier: 'Low'},
+            {x: 5, y: 4, v: 10, tier: 'Moderate'},
+            {x: 2, y: 1, v: 10, tier: 'Moderate'},
+            {x: 5, y: 3, v: 15, tier: 'High'},
+            {x: 3, y: 1, v: 15, tier: 'High'},
+            {x: 5, y: 2, v: 20, tier: 'Critical'},
+            {x: 4, y: 1, v: 20, tier: 'Critical', example: 'Sudan'},
+            {x: 5, y: 1, v: 25, tier: 'Critical'}
+          ],
+          backgroundColor: [
+            'rgba(0, 0, 255, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(0, 128, 0, 0.5)',
+            'rgba(0, 128, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 255, 0, 0.5)',
+            'rgba(255, 255, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(255, 255, 0, 0.5)',
+            'rgba(255, 255, 0, 0.5)', 'rgba(255, 165, 0, 0.5)', 'rgba(255, 165, 0, 0.5)', 'rgba(255, 165, 0, 0.5)',
+            'rgba(0, 128, 0, 0.5)', 'rgba(0, 128, 0, 0.5)', 'rgba(255, 255, 0, 0.5)', 'rgba(255, 255, 0, 0.5)',
+            'rgba(255, 165, 0, 0.5)', 'rgba(255, 165, 0, 0.5)', 'rgba(255, 0, 0, 0.5)', 'rgba(255, 0, 0, 0.5)',
+            'rgba(255, 0, 0, 0.5)'
+          ],
+          borderColor: [
+            'rgba(0, 0, 255, 1)', 'rgba(0, 128, 0, 1)', 'rgba(0, 128, 0, 1)', 'rgba(0, 128, 0, 1)',
+            'rgba(0, 128, 0, 1)', 'rgba(0, 128, 0, 1)', 'rgba(255, 255, 0, 1)', 'rgba(255, 255, 0, 1)',
+            'rgba(255, 255, 0, 1)', 'rgba(0, 128, 0, 1)', 'rgba(0, 128, 0, 1)', 'rgba(255, 255, 0, 1)',
+            'rgba(255, 255, 0, 1)', 'rgba(255, 165, 0, 1)', 'rgba(255, 165, 0, 1)', 'rgba(255, 165, 0, 1)',
+            'rgba(0, 128, 0, 1)', 'rgba(0, 128, 0, 1)', 'rgba(255, 255, 0, 1)', 'rgba(255, 255, 0, 1)',
+            'rgba(255, 165, 0, 1)', 'rgba(255, 165, 0, 1)', 'rgba(255, 0, 0, 1)', 'rgba(255, 0, 0, 1)',
+            'rgba(255, 0, 0, 1)'
+          ],
+          borderWidth: 1,
+          width: ({chart}) => (chart.chartArea || {}).width / 5 - 15,
+          height: ({chart}) => (chart.chartArea || {}).height / 5 - 15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Risk Matrix: Likelihood vs Impact',
+            color: '#333',
+            font: { size: 24 }
+          },
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const data = context.raw;
+                let label = `Likelihood: ${6 - data.y}, Impact: ${data.x}, Tier: ${data.tier}`;
+                if (data.example) {
+                  label += `, Example: ${data.example}`;
+                }
+                return label;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: 0.5,
+            max: 5.5,
+            ticks: {
+              stepSize: 1,
+              callback: value => value.toFixed(0),
+              color: '#333'
+            },
+            title: {
+              display: true,
+              text: 'Impact',
+              color: '#333',
+              font: { size: 18 }
+            },
+            grid: { display: false }
+          },
+          y: {
+            type: 'linear',
+            min: 0.5,
+            max: 5.5,
+            reverse: true,
+            ticks: {
+              stepSize: 1,
+              callback: value => (6 - value).toFixed(0),
+              color: '#333'
+            },
+            title: {
+              display: true,
+              text: 'Likelihood',
+              color: '#333',
+              font: { size: 18 }
+            },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

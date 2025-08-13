@@ -1,0 +1,36 @@
+{
+  "assets": [
+    {
+      "name": "Cote d'Ivoire example",
+      "sector": "Geopolitical/Socioeconomic",
+      "type": "Threat",
+      "likelihood": 2,
+      "impact": 4,
+      "notes": "Macro stability with localized pressures"
+    },
+    {
+      "name": "Ghana example",
+      "sector": "Geopolitical/Socioeconomic",
+      "type": "Threat",
+      "likelihood": 3,
+      "impact": 2,
+      "notes": "Currency pressure and spillover risk"
+    },
+    {
+      "name": "Sahel regional",
+      "sector": "Security/Armed Conflict",
+      "type": "Threat",
+      "likelihood": 3,
+      "impact": 4,
+      "notes": "Non-state actor activity"
+    },
+    {
+      "name": "Sudan conflict",
+      "sector": "Security/Armed Conflict",
+      "type": "Threat",
+      "likelihood": 4,
+      "impact": 5,
+      "notes": "Escalated kinetic risk"
+    }
+  ]
+}

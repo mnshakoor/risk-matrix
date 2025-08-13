@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Risk Matrix - Likelihood x Impact</title>
+  <meta name="description" content="Interactive 5x5 risk matrix with import-export, filtering, drill-down, light theme, and CARVER helper." />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #111218;
+      --muted: #cfd3dc;
+      --text: #e8eaf0;
+      --accent: #6ea8fe;
+      --border: #1a1d25;
+      --table-head: #121623;
+      --grid-gap: 12px;
+      --hover: #0e131f;
+      --chip-border: rgba(255,255,255,.25);
+    }
+    /* Light theme variables */
+    html[data-theme="light"] {
+      --bg: #f7f7fb;
+      --panel: #ffffff;
+      --muted: #516074;
+      --text: #0b0c10;
+      --accent: #1d4ed8;
+      --border: #e5e7eb;
+      --table-head: #f1f5f9;
+      --hover: #f3f4f6;
+      --chip-border: rgba(0,0,0,.15);
+    }
+
+    * { box-sizing: border-box }
+    html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial }
+    a { color: var(--accent); text-decoration: none }
+    .wrap {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      height: 100%;
+    }
+    header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(0,0,0,0.05), transparent);
+    }
+    header h1 { margin: 0 0 6px 0; font-size: 18px; letter-spacing: .2px }
+    .subtle { color: var(--muted); font-size: 13px }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--grid-gap);
+      padding: 12px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .controls .row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center }
+    .controls label { font-size: 13px; color: var(--muted); margin-right: 6px }
+    .controls input[type="number"],
+    .controls input[type="text"],
+    .controls select {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+      padding: 6px 8px; border-radius: 8px; font-size: 14px; min-width: 120px
+    }
+    .controls input[type="checkbox"] { transform: translateY(1px) }
+    .controls button {
+      background: transparent; border: 1px solid var(--border); color: var(--text);
+      padding: 6px 10px; border-radius: 8px; font-size: 14px; cursor: pointer
+    }
+    .controls button:hover { background: var(--hover) }
+    .controls .spacer { flex: 1 1 auto }
+
+    /* CARVER helper panel */
+    .helper {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px 12px 16px;
+      display: none;
+    }
+    .helper.open { display: block; margin-bottom: 12px }
+    .helper .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 8px;
+      align-items: end;
+    }
+    .helper .grid .col-span-2 { grid-column: span 2 / span 2 }
+    .helper .grid .col-span-3 { grid-column: span 3 / span 3 }
+    .helper .grid .col-span-4 { grid-column: span 4 / span 4 }
+    .helper .grid .col-span-6 { grid-column: span 6 / span 6 }
+    .helper .grid .col-span-12 { grid-column: span 12 / span 12 }
+    .helper .note { color: var(--muted); font-size: 12px; margin-top: 6px }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: var(--grid-gap);
+      padding: var(--grid-gap);
+      min-height: 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 0;
+    }
+    #matrixCard { display: grid; grid-template-rows: 1fr auto }
+    canvas { width: 100% !important; height: 100% !important; border-radius: 10px; }
+
+    .legend { display:flex; gap:10px; align-items:center; padding:8px 6px 0 6px; flex-wrap:wrap; }
+    .legend .chip { width:14px; height:14px; border-radius:4px; display:inline-block; border:1px solid var(--chip-border) }
+    .legend .item { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted) }
+
+    .list { display:flex; flex-direction:column; gap:8px; max-height: calc(100vh - 260px); overflow:auto; padding-right:4px }
+    .riskItem {
+      border: 1px solid var(--border); border-radius:10px; padding:8px;
+      background: transparent;
+    }
+    .riskItem h4 { margin:0 0 4px 0; font-size:14px }
+    .riskItem .meta { font-size:12px; color: var(--muted) }
+
+    .filters { display:flex; gap:8px; margin: 8px 0 6px 0; flex-wrap: wrap }
+    .muted { color: var(--muted) }
+
+    .tableWrap { overflow:auto; max-height: 40vh; border:1px solid var(--border); border-radius: 10px }
+    table { border-collapse:collapse; width:100%; min-width:720px; font-size: 13px }
+    th, td { border-bottom:1px solid var(--border); padding:8px 10px; text-align:left }
+    th { position: sticky; top:0; background: var(--table-head); z-index:1; cursor: pointer }
+    tr:hover td { background: var(--hover) }
+
+    footer { padding: 8px 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px }
+    @media (max-width: 1100px) {
+      .main { grid-template-columns: 1fr }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Risk Matrix - Likelihood x Impact</h1>
+      <div class="subtle">Interactive 5x5 with import-export, filtering, drill-down, theme toggle, and CARVER mapping helper.</div>
+    </header>
+
+    <!-- Core controls -->
+    <div class="controls" role="region" aria-label="Controls">
+      <div class="row" aria-label="Data actions">
+        <input id="fileInput" type="file" accept=".json,.csv" aria-label="Upload JSON or CSV" />
+        <button id="btnExportJSON" title="Download JSON">Export JSON</button>
+        <button id="btnExportCSV" title="Download CSV">Export CSV</button>
+        <button id="btnExportPDF" title="Export PDF report">Export PDF</button>
+        <button id="btnExportXLSX" title="Export Excel workbook">Export Excel</button>
+        <div class="spacer"></div>
+        <label for="themeSel">Theme</label>
+        <select id="themeSel" title="Theme">
+          <option value="auto" selected>Auto</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+        <button id="btnPng" title="Download chart as PNG">Download PNG</button>
+        <button id="btnShare" title="Copy shareable URL">Copy Share URL</button>
+      </div>
+      <div class="row" aria-label="Filters">
+        <label for="search">Search</label>
+        <input id="search" type="text" placeholder="Filter by name or notes" />
+        <label for="sectorSel">Sector</label>
+        <select id="sectorSel"><option value="">All</option></select>
+        <label for="typeSel">Type</label>
+        <select id="typeSel"><option value="">All</option></select>
+        <label><input id="toggleLabels" type="checkbox" /> Show labels inside cells</label>
+        <label><input id="toggleCategorical" type="checkbox" checked /> Show categorical only tag</label>
+        <label for="gridSel">Grid</label>
+        <select id="gridSel">
+          <option value="5" selected>5x5</option>
+          <option value="3">3x3</option>
+        </select>
+        <label for="paletteSel">Palette</label>
+        <select id="paletteSel">
+          <option value="classic" selected>Classic</option>
+          <option value="colorblind">Colorblind friendly</option>
+        </select>
+        <button id="btnToggleHelper" title="Toggle CARVER helper">CARVER helper</button>
+      </div>
+      <div class="row" aria-label="Thresholds">
+        <span class="muted">Tier thresholds by product v = L x I:</span>
+        <label>Low max <input id="thrLow" type="number" min="1" max="25" step="1" value="5"></label>
+        <label>Moderate max <input id="thrMod" type="number" min="1" max="25" step="1" value="10"></label>
+        <label>High max <input id="thrHigh" type="number" min="1" max="25" step="1" value="15"></label>
+        <span class="muted">Above high is Critical</span>
+      </div>
+    </div>
+
+    <!-- CARVER helper -->
+    <div id="helper" class="helper" role="region" aria-label="CARVER helper">
+      <div class="grid">
+        <div class="col-span-3">
+          <label>CARVER scale<br>
+            <select id="hScale">
+              <option value="5" selected>1-5</option>
+              <option value="10">1-10</option>
+            </select>
+          </label>
+        </div>
+        <div class="col-span-3">
+          <label>Name<br><input id="hName" type="text" placeholder="Risk name" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>Sector<br>
+            <select id="hSector">
+              <option value="">Select</option>
+              <option>NGO/Humanitarian</option>
+              <option>Security/Armed Conflict</option>
+              <option>Geopolitical/Socioeconomic</option>
+              <option>Water and Wastewater Systems</option>
+              <option>Energy</option>
+              <option>Health</option>
+              <option>Transport</option>
+            </select>
+          </label>
+        </div>
+        <div class="col-span-2">
+          <label>Type<br>
+            <select id="hType">
+              <option>Threat</option>
+              <option>Hazard</option>
+              <option>Opportunity</option>
+              <option>Dependency</option>
+            </select>
+          </label>
+        </div>
+        <div class="col-span-5">
+          <label>Notes<br><input id="hNotes" type="text" placeholder="Optional notes" /></label>
+        </div>
+
+        <!-- CARVER scores -->
+        <div class="col-span-2">
+          <label>C (1-5)<br><input id="hC" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>A (1-5)<br><input id="hA" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>R (Recuperability 1-5)<br><input id="hR" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>V (1-5)<br><input id="hV" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>E (1-5)<br><input id="hE" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+        <div class="col-span-2">
+          <label>Rz (1-5)<br><input id="hRz" type="number" min="1" max="5" step="1" value="3" /></label>
+        </div>
+
+        <div class="col-span-12">
+          <div class="filters">
+            <button id="hCompute" type="button">Compute L and I</button>
+            <div class="muted">L = avg(A, V, Rz), I = avg(C, E, R). Values rounded to nearest integer 1 to 5.</div>
+          </div>
+        </div>
+
+        <div class="col-span-2">
+          <label>L result<br><input id="hL" type="number" min="1" max="5" step="1" value="3" readonly /></label>
+        </div>
+        <div class="col-span-2">
+          <label>I result<br><input id="hI" type="number" min="1" max="5" step="1" value="3" readonly /></label>
+        </div>
+        <div class="col-span-8" style="display:flex;gap:8px;align-items:end;">
+          <button id="hAdd" type="button">Add to register</button>
+          <button id="hPrefill" type="button">Prefill Add risk form</button>
+        </div>
+
+        <div class="col-span-12 note">
+          Note: Your Recuperability convention is applied. Higher R increases Impact which reflects lower resilience and harder recovery. If using 1-10, scores are normalized to 1-5 with simple linear scaling.
+        </div>
+      </div>
+    </div>
+
+    <div class="main">
+      <section id="matrixCard" class="card" aria-label="Matrix chart">
+        <canvas id="riskMatrix" aria-label="Risk matrix heatmap" role="img"></canvas>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <aside class="card" aria-label="Drill-down and add item">
+        <h3 style="margin:4px 0 6px 0;font-size:16px">Cell items</h3>
+        <div class="muted" id="cellTitle">Click a cell to list items at that Likelihood and Impact.</div>
+        <div class="list" id="cellList" aria-live="polite"></div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px 0" />
+        <h3 style="margin:4px 0 6px 0;font-size:16px">Add risk</h3>
+        <form id="addForm" class="filters">
+          <input name="name" required type="text" placeholder="Name" />
+          <select name="sector" required>
+            <option value="">Sector</option>
+            <option>NGO/Humanitarian</option>
+            <option>Security/Armed Conflict</option>
+            <option>Geopolitical/Socioeconomic</option>
+            <option>Water and Wastewater Systems</option>
+            <option>Energy</option>
+            <option>Health</option>
+            <option>Transport</option>
+          </select>
+          <select name="type" required>
+            <option value="">Type</option>
+            <option>Threat</option>
+            <option>Hazard</option>
+            <option>Opportunity</option>
+            <option>Dependency</option>
+          </select>
+          <input name="likelihood" id="formL" type="number" min="1" max="5" step="1" required placeholder="L 1-5" />
+          <input name="impact" id="formI" type="number" min="1" max="5" step="1" required placeholder="I 1-5" />
+          <input name="notes" id="formNotes" type="text" placeholder="Notes" />
+          <button type="submit">Add</button>
+        </form>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0 8px 10px" />
+        <h3 style="margin:4px 0 6px 0;font-size:16px">Risk register</h3>
+        <div class="tableWrap" aria-label="Risk register table">
+          <table id="regTable">
+            <thead>
+              <tr>
+                <th data-k="name">Name</th>
+                <th data-k="sector">Sector</th>
+                <th data-k="type">Type</th>
+                <th data-k="likelihood" title="Likelihood 1-5">L</th>
+                <th data-k="impact" title="Impact 1-5">I</th>
+                <th data-k="v" title="Product L x I">v</th>
+                <th data-k="tier">Tier</th>
+                <th data-k="notes">Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </aside>
+    </div>
+
+    <footer>
+      Built for static hosting. Data is stored in your browser and can be exported. Use the share button to encode state into the URL.
+    </footer>
+  </div>
+
+  <script>
+    /* ---------- Theme handling ---------- */
+    const THEME_KEY = "risk-matrix-theme";
+    function systemPrefersDark() {
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    function applyTheme(mode) {
+      const html = document.documentElement;
+      if (mode === "auto") {
+        html.setAttribute("data-theme", systemPrefersDark() ? "dark" : "light");
+      } else {
+        html.setAttribute("data-theme", mode);
+      }
+      localStorage.setItem(THEME_KEY, mode);
+    }
+    function initTheme() {
+      const sel = document.getElementById("themeSel");
+      const saved = localStorage.getItem(THEME_KEY) || "auto";
+      sel.value = saved;
+      applyTheme(saved);
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        if (sel.value === "auto") applyTheme("auto");
+      });
+      sel.addEventListener("change", e => applyTheme(e.target.value));
+    }
+
+    /* ---------- Utility: palettes, tiers, CSV helpers ---------- */
+    const Palettes = {
+      classic: { Negligible:"#3b82f6", Low:"#22c55e", Moderate:"#eab308", High:"#fb923c", Critical:"#ef4444" },
+      colorblind: { Negligible:"#7e7eff", Low:"#55a868", Moderate:"#ddb310", High:"#e17c05", Critical:"#cc3311" }
+    };
+    function computeTier(v, thr) {
+      if (v <= thr.low) return "Low";
+      if (v <= thr.mod) return "Moderate";
+      if (v <= thr.high) return "High";
+      return "Critical";
+    }
+    function parseCSV(text) {
+      const rows = text.trim().split(/\r?\n/);
+      const header = rows.shift().split(",").map(s => s.trim());
+      return rows.map(line => {
+        const cols = line.split(",").map(c => c.trim());
+        const obj = {};
+        header.forEach((h,i)=>obj[h]=cols[i] ?? "");
+        return obj;
+      });
+    }
+    function toCSV(rows) {
+      if (!rows.length) return "";
+      const head = Object.keys(rows[0]);
+      const lines = [head.join(",")];
+      for (const r of rows) lines.push(head.map(k => String(r[k] ?? "").replace(/[\r\n,]/g," ")).join(","));
+      return lines.join("\n");
+    }
+    function saveBlob(name, mime, data) {
+      const blob = new Blob([data], {type: mime});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 100);
+    }
+
+    /* ---------- State ---------- */
+    const state = {
+      assets: [],
+      gridSize: 5,
+      palette: "classic",
+      thresholds: { low: 5, mod: 10, high: 15 },
+      filters: { sector:"", type:"", search:"" },
+      showLabels: false,
+      showCategorical: true,
+      selectedCell: null,
+      sort: { k:"v", dir:"desc" }
+    };
+
+    const seed = [
+      { name:"Cote d'Ivoire example", sector:"Geopolitical/Socioeconomic", type:"Threat", likelihood:2, impact:4, notes:"Macro stability with localized pressures" },
+      { name:"Ghana example", sector:"Geopolitical/Socioeconomic", type:"Threat", likelihood:3, impact:2, notes:"Currency pressure and spillover risk" },
+      { name:"Sahel regional", sector:"Security/Armed Conflict", type:"Threat", likelihood:3, impact:4, notes:"Non-state actor activity" },
+      { name:"Sudan conflict", sector:"Security/Armed Conflict", type:"Threat", likelihood:4, impact:5, notes:"Escalated kinetic risk" }
+    ];
+    const saved = localStorage.getItem("risk-matrix-data");
+    if (saved) {
+      try { Object.assign(state, JSON.parse(saved)); } catch {}
+    } else {
+      state.assets = seed;
+    }
+
+    function persist() {
+      localStorage.setItem("risk-matrix-data", JSON.stringify({
+        assets: state.assets,
+        gridSize: state.gridSize,
+        palette: state.palette,
+        thresholds: state.thresholds,
+        filters: state.filters,
+        showLabels: state.showLabels,
+        showCategorical: state.showCategorical,
+        sort: state.sort
+      }));
+    }
+
+    /* ---------- Derivations ---------- */
+    function enrichedAssets() {
+      const thr = state.thresholds;
+      return state.assets.map(a => {
+        const L = clampInt(a.likelihood, 1, 5);
+        const I = clampInt(a.impact, 1, 5);
+        const v = L * I;
+        const tier = computeTier(v, thr);
+        return { ...a, likelihood:L, impact:I, v, tier };
+      });
+    }
+    function clampInt(v, min, max) {
+      const n = Math.round(Number(v) || 0);
+      return Math.max(min, Math.min(max, n));
+    }
+    function applyFilters(list) {
+      const f = state.filters;
+      return list.filter(a => {
+        if (f.sector && a.sector !== f.sector) return false;
+        if (f.type && a.type !== f.type) return false;
+        if (f.search) {
+          const s = f.search.toLowerCase();
+          if (!(`${a.name} ${a.notes || ""}`.toLowerCase().includes(s))) return false;
+        }
+        return true;
+      });
+    }
+    function gridMap(list) {
+      const map = new Map();
+      const size = state.gridSize;
+      for (const a of list) {
+        const L5 = a.likelihood, I5 = a.impact;
+        const L = size === 5 ? L5 : Math.ceil(L5 * 3 / 5);
+        const I = size === 5 ? I5 : Math.ceil(I5 * 3 / 5);
+        const key = `${I}-${L}`;
+        if (!map.has(key)) map.set(key, { I, L, items: [] });
+        map.get(key).items.push(a);
+      }
+      return map;
+    }
+
+    /* ---------- Chart ---------- */
+    let chart;
+    function buildChart() {
+      const ctx = document.getElementById("riskMatrix").getContext("2d");
+      if (chart) chart.destroy();
+
+      const list = applyFilters(enrichedAssets());
+      const gmap = gridMap(list);
+      const size = Number(state.gridSize);
+      const data = [];
+      const pal = Palettes[state.palette];
+
+      for (let I=1; I<=size; I++) {
+        for (let L=1; L<=size; L++) {
+          const key = `${I}-${L}`;
+          const cell = gmap.get(key) || { I, L, items: [] };
+          const count = cell.items.length;
+          let tier = "Negligible";
+          if (count > 0) {
+            const maxV = Math.max(...cell.items.map(a => a.v));
+            tier = computeTier(maxV, state.thresholds);
+          }
+          data.push({
+            x: I, y: L, v: count, tier,
+            items: cell.items,
+            backgroundColor: cellColor(tier, pal, count),
+            borderColor: "rgba(127,127,127,0.25)",
+            borderWidth: 1
+          });
+        }
+      }
+
+      const cfg = {
+        type: "matrix",
+        data: { datasets: [{
+          label: "Risk Matrix",
+          data,
+          width: ({chart}) => {
+            const ca = chart.chartArea || { width: 0 };
+            return ca.width / size - 10;
+          },
+          height: ({chart}) => {
+            const ca = chart.chartArea || { height: 0 };
+            return ca.height / size - 10;
+          },
+          backgroundColor(ctx) { return ctx.raw.backgroundColor; },
+          borderColor(ctx) { return ctx.raw.borderColor; },
+          borderWidth(ctx) { return ctx.raw.borderWidth; }
+        }]},
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: `Risk Matrix - Likelihood vs Impact (${size}x${size})`,
+              color: "currentColor",
+              font: { size: 17 }
+            },
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title(items) {
+                  if (!items.length) return "";
+                  const r = items[0].raw;
+                  const L = r.y, I = r.x;
+                  return `Cell L=${L}, I=${I}`;
+                },
+                label(ctx) {
+                  const r = ctx.raw;
+                  const names = r.items.slice(0, 6).map(a => a.name);
+                  const extra = r.items.length > 6 ? ` +${r.items.length - 6} more` : "";
+                  return [
+                    `Count: ${r.v}`,
+                    `Tier: ${r.tier}`,
+                    names.length ? `Items: ${names.join("; ")}${extra}` : "Items: none"
+                  ];
+                }
+              }
+            }
+          },
+          onClick(evt, els) {
+            const pt = chart.getElementsAtEventForMode(evt, "nearest", { intersect: true }, true)[0];
+            if (!pt) return;
+            const r = pt.element.$context.raw;
+            state.selectedCell = { L: r.y, I: r.x };
+            renderCellList();
+          },
+          scales: {
+            x: {
+              type: "linear",
+              min: 0.5, max: size + 0.5,
+              ticks: {
+                stepSize: 1,
+                color: "currentColor",
+                callback: v => v.toFixed(0)
+              },
+              title: {
+                display: true, text: "Impact", color: "currentColor", font: { size: 14 }
+              },
+              grid: { display: false }
+            },
+            y: {
+              type: "linear",
+              min: 0.5, max: size + 0.5,
+              reverse: true,
+              ticks: {
+                stepSize: 1,
+                color: "currentColor",
+                callback: value => value.toFixed(0)
+              },
+              title: {
+                display: true, text: "Likelihood", color: "currentColor", font: { size: 14 }
+              },
+              grid: { display: false }
+            }
+          }
+        },
+        plugins: [{
+          id: "overlayLabels",
+          afterDatasetsDraw(c) {
+            if (!state.showLabels) return;
+            const { ctx } = c;
+            ctx.save();
+            c.data.datasets[0].data.forEach(d => {
+              const meta = c.getDatasetMeta(0);
+              const el = meta.data.find(e => e.$context && e.$context.raw === d);
+              if (!el) return;
+              const { x, y } = el;
+              ctx.fillStyle = "currentColor";
+              ctx.globalAlpha = .85;
+              ctx.font = "12px system-ui, sans-serif";
+              ctx.textAlign = "center";
+              ctx.fillText(String(d.v), x, y + 4);
+            });
+            ctx.restore();
+          }
+        }, {
+          id: "categoricalTag",
+          afterDraw(c) {
+            if (!state.showCategorical) return;
+            const { ctx } = c;
+            ctx.save();
+            ctx.fillStyle = "rgba(100,116,139,.18)";
+            ctx.strokeStyle = "rgba(100,116,139,.35)";
+            ctx.lineWidth = 1;
+            const text = "5x5 matrix - categorical use only";
+            const padding = 6;
+            ctx.font = "12px system-ui, sans-serif";
+            const w = ctx.measureText(text).width + padding*2;
+            ctx.fillRect(12, 14, w, 22);
+            ctx.strokeRect(12, 14, w, 22);
+            ctx.fillStyle = "currentColor";
+            ctx.globalAlpha = .7;
+            ctx.fillText(text, 12 + padding, 30);
+            ctx.restore();
+          }
+        }]
+      };
+      chart = new Chart(ctx, cfg);
+      updateLegend();
+    }
+
+    function cellColor(tier, pal, count) {
+      const base = pal[tier] || "#64748b";
+      const rgba = hexToRgba(base, Math.min(0.15 + count * 0.1, 0.85));
+      return rgba;
+    }
+    function hexToRgba(hex, a) {
+      const m = hex.replace("#","").match(/.{1,2}/g);
+      const [r,g,b] = m.map(h => parseInt(h,16));
+      return `rgba(${r},${g},${b},${a})`;
+    }
+
+    function updateLegend() {
+      const pal = Palettes[state.palette];
+      const el = document.getElementById("legend");
+      const t = state.thresholds;
+      el.innerHTML = `
+        <div class="item"><span class="chip" style="background:${pal.Low}"></span>Low ≤ ${t.low}</div>
+        <div class="item"><span class="chip" style="background:${pal.Moderate}"></span>Moderate ≤ ${t.mod}</div>
+        <div class="item"><span class="chip" style="background:${pal.High}"></span>High ≤ ${t.high}</div>
+        <div class="item"><span class="chip" style="background:${pal.Critical}"></span>Critical > ${t.high}</div>
+      `;
+    }
+
+    /* ---------- Cell list ---------- */
+    function renderCellList() {
+      const title = document.getElementById("cellTitle");
+      const listEl = document.getElementById("cellList");
+      listEl.innerHTML = "";
+      if (!state.selectedCell) {
+        title.textContent = "Click a cell to list items at that Likelihood and Impact.";
+        return;
+      }
+      const L = state.selectedCell.L, I = state.selectedCell.I;
+      title.textContent = `Items at L=${L}, I=${I}`;
+      const list = applyFilters(enrichedAssets()).filter(a => {
+        const size = state.gridSize;
+        const lBin = size === 5 ? a.likelihood : Math.ceil(a.likelihood * 3 / 5);
+        const iBin = size === 5 ? a.impact : Math.ceil(a.impact * 3 / 5);
+        return lBin === L && iBin === I;
+      });
+      if (!list.length) {
+        const empty = document.createElement("div");
+        empty.className = "muted";
+        empty.textContent = "No items in this cell.";
+        listEl.appendChild(empty);
+        return;
+      }
+      list.forEach((a) => {
+        const d = document.createElement("div");
+        d.className = "riskItem";
+        d.innerHTML = `
+          <h4>${escapeHtml(a.name)}</h4>
+          <div class="meta">Sector: ${escapeHtml(a.sector || "")} · Type: ${escapeHtml(a.type || "")}</div>
+          <div class="meta">L=${a.likelihood}, I=${a.impact}, v=${a.v}, Tier=${a.tier}</div>
+          <div class="meta">${escapeHtml(a.notes || "")}</div>
+          <div style="margin-top:6px;display:flex;gap:6px">
+            <button data-act="del" data-name="${encodeURIComponent(a.name)}">Delete</button>
+          </div>
+        `;
+        listEl.appendChild(d);
+      });
+      listEl.querySelectorAll('button[data-act="del"]').forEach(btn => {
+        btn.addEventListener("click", () => {
+          const name = decodeURIComponent(btn.dataset.name);
+          state.assets = state.assets.filter(x => x.name !== name);
+          persist();
+          rebuild();
+          state.selectedCell = { L, I };
+          renderCellList();
+        });
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    /* ---------- Register table ---------- */
+    function rebuildTable() {
+      const tbody = document.querySelector("#regTable tbody");
+      const rows = applyFilters(enrichedAssets()).sort((a,b) => {
+        const k = state.sort.k, dir = state.sort.dir === "asc" ? 1 : -1;
+        if (a[k] < b[k]) return -1*dir;
+        if (a[k] > b[k]) return 1*dir;
+        return 0;
+      });
+      tbody.innerHTML = "";
+      for (const a of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(a.name)}</td>
+          <td>${escapeHtml(a.sector || "")}</td>
+          <td>${escapeHtml(a.type || "")}</td>
+          <td>${a.likelihood}</td>
+          <td>${a.impact}</td>
+          <td>${a.v}</td>
+          <td>${a.tier}</td>
+          <td>${escapeHtml(a.notes || "")}</td>
+          <td><button data-del="${encodeURIComponent(a.name)}">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+      tbody.querySelectorAll("button[data-del]").forEach(b => {
+        b.addEventListener("click", () => {
+          const name = decodeURIComponent(b.dataset.del);
+          state.assets = state.assets.filter(x => x.name !== name);
+          persist();
+          rebuild();
+        });
+      });
+    }
+    document.querySelectorAll("#regTable th[data-k]").forEach(th => {
+      th.addEventListener("click", () => {
+        const k = th.dataset.k;
+        state.sort = { k, dir: (state.sort.k === k && state.sort.dir === "asc") ? "desc" : "asc" };
+        rebuildTable();
+      });
+    });
+
+    /* ---------- Filters and controls ---------- */
+    function populateSelects() {
+      const assets = enrichedAssets();
+      const sectors = Array.from(new Set(assets.map(a => a.sector).filter(Boolean))).sort();
+      const types = Array.from(new Set(assets.map(a => a.type).filter(Boolean))).sort();
+      const selS = document.getElementById("sectorSel");
+      const selT = document.getElementById("typeSel");
+      selS.innerHTML = `<option value="">All</option>` + sectors.map(s=>`<option>${escapeHtml(s)}</option>`).join("");
+      selT.innerHTML = `<option value="">All</option>` + types.map(s=>`<option>${escapeHtml(s)}</option>`).join("");
+      selS.value = state.filters.sector || "";
+      selT.value = state.filters.type || "";
+    }
+
+    document.getElementById("search").addEventListener("input", e => {
+      state.filters.search = e.target.value.trim();
+      persist(); rebuild();
+    });
+    document.getElementById("sectorSel").addEventListener("change", e => {
+      state.filters.sector = e.target.value; persist(); rebuild();
+    });
+    document.getElementById("typeSel").addEventListener("change", e => {
+      state.filters.type = e.target.value; persist(); rebuild();
+    });
+    document.getElementById("toggleLabels").addEventListener("change", e => {
+      state.showLabels = e.target.checked; persist(); buildChart();
+    });
+    document.getElementById("toggleCategorical").addEventListener("change", e => {
+      state.showCategorical = e.target.checked; persist(); buildChart();
+    });
+    document.getElementById("gridSel").addEventListener("change", e => {
+      state.gridSize = Number(e.target.value); persist(); buildChart(); renderCellList();
+    });
+    document.getElementById("paletteSel").addEventListener("change", e => {
+      state.palette = e.target.value; persist(); buildChart();
+    });
+
+    ["thrLow","thrMod","thrHigh"].forEach(id => {
+      document.getElementById(id).addEventListener("change", () => {
+        const low = Number(document.getElementById("thrLow").value);
+        const mod = Number(document.getElementById("thrMod").value);
+        const high = Number(document.getElementById("thrHigh").value);
+        state.thresholds = { low: Math.min(low, mod, high), mod: Math.max(low, Math.min(mod, high)), high: Math.max(low, mod, high) };
+        persist(); buildChart(); rebuildTable(); renderCellList(); updateLegend();
+      });
+    });
+
+    /* ---------- Add form ---------- */
+    document.getElementById("addForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const item = {
+        name: fd.get("name").trim(),
+        sector: fd.get("sector"),
+        type: fd.get("type"),
+        likelihood: clampInt(fd.get("likelihood"),1,5),
+        impact: clampInt(fd.get("impact"),1,5),
+        notes: fd.get("notes").trim()
+      };
+      if (!item.name) return;
+      state.assets.push(item);
+      e.target.reset();
+      persist();
+      populateSelects();
+      rebuild();
+      if (state.selectedCell) renderCellList();
+    });
+
+    /* ---------- Import-export ---------- */
+    document.getElementById("fileInput").addEventListener("change", async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const text = await f.text();
+      try {
+        let rows = [];
+        if (f.name.endsWith(".json")) {
+          const j = JSON.parse(text);
+          rows = Array.isArray(j) ? j : (j.assets || []);
+        } else {
+          const objRows = parseCSV(text);
+          rows = objRows.map(r => ({
+            name: r.name || r.asset || r.Asset || "",
+            sector: r.sector || "",
+            type: r.type || "Threat",
+            likelihood: Number(r.likelihood || r.L || r.l || r["Likelihood"] || 1),
+            impact: Number(r.impact || r.I || r.i || r["Impact"] || 1),
+            notes: r.notes || r.Notes || ""
+          }));
+        }
+        rows = rows.filter(x => x && x.name);
+        if (!rows.length) { alert("No valid rows found."); return; }
+        state.assets = rows;
+        persist();
+        populateSelects();
+        rebuild();
+        state.selectedCell = null;
+        renderCellList();
+      } catch (err) {
+        console.error(err);
+        alert("Import failed. Ensure correct JSON or CSV format.");
+      } finally {
+        e.target.value = "";
+      }
+    });
+
+    document.getElementById("btnExportJSON").addEventListener("click", () => {
+      const data = JSON.stringify({ assets: state.assets }, null, 2);
+      saveBlob("risk-register.json", "application/json", data);
+    });
+    document.getElementById("btnExportCSV").addEventListener("click", () => {
+      const rows = enrichedAssets().map(a => ({
+        name:a.name, sector:a.sector||"", type:a.type||"",
+        likelihood:a.likelihood, impact:a.impact, v:a.v, tier:a.tier, notes:a.notes||""
+      }));
+      saveBlob("risk-register.csv", "text/csv", toCSV(rows));
+    });
+
+    document.getElementById("btnPng").addEventListener("click", async () => {
+      const url = chart.toBase64Image("image/png", 1);
+      const res = await fetch(url);
+      const blob = await res.blob();
+      saveBlob("risk-matrix.png", "image/png", blob);
+    });
+
+    document.getElementById("btnShare").addEventListener("click", () => {
+      const payload = {
+        assets: state.assets,
+        palette: state.palette,
+        thresholds: state.thresholds,
+        gridSize: state.gridSize,
+        filters: state.filters,
+        showLabels: state.showLabels,
+        showCategorical: state.showCategorical
+      };
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const url = `${location.origin}${location.pathname}?data=${b64}`;
+      navigator.clipboard.writeText(url).then(() => alert("Share URL copied to clipboard."));
+    });
+
+    /* ---------- Export PDF and Excel ---------- */
+    document.getElementById("btnExportPDF").addEventListener("click", async () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 36;
+      // Title
+      doc.setFontSize(14);
+      doc.text("Risk Matrix report", margin, 40);
+      // Chart image
+      const canvas = document.getElementById("riskMatrix");
+      const imgData = canvas.toDataURL("image/png", 1.0);
+      const imgW = pageW - margin*2;
+      const imgH = canvas.height * (imgW / canvas.width);
+      doc.addImage(imgData, "PNG", margin, 56, imgW, Math.min(imgH, 360));
+      let y = 56 + Math.min(imgH, 360) + 20;
+      // Table using autoTable
+      const rows = enrichedAssets().map(a => [a.name, a.sector||"", a.type||"", a.likelihood, a.impact, a.v, a.tier, a.notes||""]);
+      doc.autoTable({
+        startY: y,
+        head: [["Name","Sector","Type","L","I","v","Tier","Notes"]],
+        body: rows,
+        styles: { fontSize: 8 },
+        theme: "grid",
+        margin: { left: margin, right: margin }
+      });
+      doc.save("risk-report.pdf");
+    });
+
+    document.getElementById("btnExportXLSX").addEventListener("click", () => {
+      const rows = enrichedAssets().map(a => ({
+        name:a.name, sector:a.sector||"", type:a.type||"",
+        likelihood:a.likelihood, impact:a.impact, v:a.v, tier:a.tier, notes:a.notes||""
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.json_to_sheet(rows, { header:["name","sector","type","likelihood","impact","v","tier","notes"] });
+      XLSX.utils.book_append_sheet(wb, ws1, "Risk Register");
+      // Summary matrix sheet
+      const size = Number(state.gridSize) || 5;
+      const header = ["L\\I"].concat([...Array(size)].map((_,i)=>String(i+1)));
+      const grid = Array.from({length:size}, (_,i)=>Array.from({length:size},(_,j)=>0));
+      enrichedAssets().forEach(a=>{ const L=a.likelihood-1, I=a.impact-1; if(L>=0&&L<size&&I>=0&&I<size) grid[L][I]++; });
+      const matRows = [header];
+      for (let L=1; L<=size; L++) { matRows.push([String(L)].concat(grid[L-1].map(n=>n))); }
+      const ws2 = XLSX.utils.aoa_to_sheet(matRows);
+      XLSX.utils.book_append_sheet(wb, ws2, "Matrix Summary");
+      XLSX.writeFile(wb, "risk-register.xlsx");
+    });
+
+    /* ---------- CARVER helper logic ---------- */
+    function updateScaleConstraints() {
+      const scale = Number(document.getElementById('hScale').value) || 5;
+      ['hC','hA','hR','hV','hE','hRz'].forEach(id => {
+        const el = document.getElementById(id);
+        el.min = 1; el.max = scale; el.step = 1;
+        const v = Math.max(1, Math.min(scale, Number(el.value)||1));
+        el.value = v;
+      });
+    }
+
+    const helper = document.getElementById("helper");
+    document.getElementById("btnToggleHelper").addEventListener("click", () => {
+      document.body.classList.toggle('helper-open');
+      helper.classList.toggle("open");
+    });
+    function avg3(a,b,c) {
+      const n = (Number(a)||0) + (Number(b)||0) + (Number(c)||0);
+      return Math.round(n / 3);
+    }
+    function computeCARVER() {
+      const scale = Number(document.getElementById("hScale").value) || 5;
+      const C = clampInt(document.getElementById("hC").value,1,scale);
+      const A = clampInt(document.getElementById("hA").value,1,scale);
+      const R = clampInt(document.getElementById("hR").value,1,scale);
+      const V = clampInt(document.getElementById("hV").value,1,scale);
+      const E = clampInt(document.getElementById("hE").value,1,scale);
+      const Rz = clampInt(document.getElementById("hRz").value,1,scale);
+      const avg3 = (x,y,z) => Math.round((Number(x||0)+Number(y||0)+Number(z||0))/3);
+      const norm = (val) => clampInt(Math.round(val / scale * 5), 1, 5);
+      const L = norm(avg3(A,V,Rz));
+      const I = norm(avg3(C,E,R));
+      document.getElementById("hL").value = L;
+      document.getElementById("hI").value = I;
+      return { L, I, C, A, R, V, E, Rz, scale };
+    }
+    document.getElementById("hCompute").addEventListener("click", computeCARVER);
+    document.getElementById("hScale").addEventListener("change", () => { updateScaleConstraints(); computeCARVER(); });
+    updateScaleConstraints();
+
+    document.getElementById("hPrefill").addEventListener("click", () => {
+      const { L, I } = computeCARVER();
+      document.getElementById("formL").value = L;
+      document.getElementById("formI").value = I;
+      const notes = document.getElementById("formNotes");
+      const base = notes.value || "";
+      const detail = `CARVER L=${L} I=${I}`;
+      notes.value = base ? `${base} | ${detail}` : detail;
+      alert("Add risk form prefilled from CARVER results.");
+      window.scrollTo({ top: document.getElementById("addForm").getBoundingClientRect().top + window.scrollY - 20, behavior: "smooth" });
+    });
+
+    document.getElementById("hAdd").addEventListener("click", () => {
+      const { L, I } = computeCARVER();
+      const name = document.getElementById("hName").value.trim() || "New risk";
+      const sector = document.getElementById("hSector").value || "";
+      const type = document.getElementById("hType").value || "Threat";
+      const notes = document.getElementById("hNotes").value.trim();
+      const item = { name, sector, type, likelihood: L, impact: I, notes };
+      state.assets.push(item);
+      persist();
+      populateSelects();
+      rebuild();
+      alert("Added to register.");
+    });
+
+    /* ---------- Rebuild pipeline ---------- */
+    function rebuild() {
+      document.getElementById("thrLow").value = state.thresholds.low;
+      document.getElementById("thrMod").value = state.thresholds.mod;
+      document.getElementById("thrHigh").value = state.thresholds.high;
+      populateSelects();
+      buildChart();
+      rebuildTable();
+    }
+
+    function initControlsFromState() {
+      document.getElementById("paletteSel").value = state.palette;
+      document.getElementById("gridSel").value = String(state.gridSize);
+      document.getElementById("toggleLabels").checked = state.showLabels;
+      document.getElementById("toggleCategorical").checked = state.showCategorical;
+      document.getElementById("thrLow").value = state.thresholds.low;
+      document.getElementById("thrMod").value = state.thresholds.mod;
+      document.getElementById("thrHigh").value = state.thresholds.high;
+      document.getElementById("search").value = state.filters.search || "";
+    }
+
+    // Init
+    initTheme();
+    initControlsFromState();
+    rebuild();
+    renderCellList();
+    window.addEventListener("resize", () => { if (chart) chart.resize(); });
+  </script>
+</body>
+</html>
