@@ -1,6 +1,6 @@
-# Convert CARVER List to Risk Register JSON
+# Convert CARVER List to Risk Register JSON Prompt for ChatGPT or any other LLM of choice
 
-## Role
+## Task
 
 Convert a plain text list or table of risks that includes CARVER scores into valid JSON using the schema below. Do not add any explanations before or after the JSON.
 
