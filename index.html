@@ -912,9 +912,9 @@
       const el = document.getElementById("legend");
       const t = state.thresholds;
       el.innerHTML = `
-        <div class="item"><span class="chip" style="background:${pal.Low}"></span>Low â‰¤ ${t.low}</div>
-        <div class="item"><span class="chip" style="background:${pal.Moderate}"></span>Moderate â‰¤ ${t.mod}</div>
-        <div class="item"><span class="chip" style="background:${pal.High}"></span>High â‰¤ ${t.high}</div>
+        <div class="item"><span class="chip" style="background:${pal.Low}"></span>Low ≤ ${t.low}</div>
+        <div class="item"><span class="chip" style="background:${pal.Moderate}"></span>Moderate ≤ ${t.mod}</div>
+        <div class="item"><span class="chip" style="background:${pal.High}"></span>High ≤ ${t.high}</div>
         <div class="item"><span class="chip" style="background:${pal.Critical}"></span>Critical > ${t.high}</div>
       `;
     }
