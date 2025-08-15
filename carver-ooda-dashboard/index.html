@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OODA–CARVER Ops Risk Dashboard</title>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        /* Reset and base styles */    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border-color: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --border-hover: #475569;
+            --accent-color: #3b82f6;
+            --accent-hover: #60a5fa;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            [data-theme="auto"] {
+                --bg-primary: #0f172a;
+                --bg-secondary: #1e293b;
+                --bg-card: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --text-muted: #94a3b8;
+                --border-color: #334155;
+                --border-hover: #475569;
+                --accent-color: #3b82f6;
+                --accent-hover: #60a5fa;
+                --success-color: #10b981;
+                --warning-color: #f59e0b;
+                --error-color: #ef4444;
+                --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+            min-height: 100vh;
+        }
+
+        /* Utility classes */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .grid { display: grid; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .text-xs { font-size: 0.75rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-xl { font-size: 1.25rem; }
+        .font-semibold { font-weight: 600; }
+        .text-slate-600 { color: #475569; }
+        .text-slate-700 { color: #334155; }
+        .text-slate-800 { color: #1e293b; }
+        .text-emerald-700 { color: #047857; }
+        .text-rose-700 { color: #be123c; }
+        .text-amber-800 { color: #92400e; }
+        .bg-white { background-color: white; }
+        .bg-slate-100 { background-color: #f1f5f9; }
+        .bg-emerald-100 { background-color: #dcfce7; }
+        .bg-rose-100 { background-color: #ffe4e6; }
+        .bg-amber-100 { background-color: #fef3c7; }
+        .bg-rose-400 { background-color: #fb7185; }
+        .bg-amber-400 { background-color: #fbbf24; }
+        .bg-yellow-300 { background-color: #fde047; }
+        .bg-emerald-300 { background-color: #86efac; }
+        .border { border: 1px solid #e2e8f0; }
+        .border-b { border-bottom: 1px solid #e2e8f0; }
+        .rounded-md { border-radius: 0.375rem; }
+        .rounded-full { border-radius: 9999px; }
+        .shadow { box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); }
+        .shadow-inner { box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05); }
+        .cursor-pointer { cursor: pointer; }
+        .max-w-7xl { max-width: 80rem; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .sticky { position: sticky; }
+        .top-0 { top: 0; }
+        .z-20 { z-index: 20; }
+        .backdrop-blur { backdrop-filter: blur(8px); }
+        .bg-opacity-80 { background-color: rgba(255, 255, 255, 0.8); }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .right-1 { right: 0.25rem; }
+        .top-1 { top: 0.25rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .overflow-hidden { overflow: hidden; }
+        .truncate { 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leading-tight { line-height: 1.25; }
+        .space-y-0\.5 > * + * { margin-top: 0.125rem; }
+        .italic { font-style: italic; }
+        .text-center { text-align: center; }
+        .pr-1 { padding-right: 0.25rem; }
+        .p-1 { padding: 0.25rem; }
+        .h-6 { height: 1.5rem; }
+        .w-6 { width: 1.5rem; }
+        .h-20 { height: 5rem; }
+        .w-full { width: 100%; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .col-span-5 { grid-column: span 5 / span 5; }
+        .row-span-5 { grid-row: span 5 / span 5; }
+
+        /* Header styles */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 1px solid #e2e8f0;
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+        }
+
+        .header-content {
+            max-width: 80rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Tag component */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 9999px;
+            background-color: #f1f5f9;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.75rem;
+            color: #334155;
+        }
+
+        .tag.success {
+            color: #047857;
+        }
+
+        .tag.error {
+            color: #be123c;
+        }
+
+        /* Button styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .btn-outline {
+            border: 1px solid #e2e8f0;
+            background-color: white;
+            color: #374151;
+        }
+
+        .btn-outline:hover {
+            background-color: #f9fafb;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        /* Input styles */
+        .input, .select {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .input:focus, .select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+        }
+
+        /* Button styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-hover);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        /* Table styles */
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--bg-card);
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--bg-secondary);
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        th:hover {
+            background-color: var(--border-color);
+        }
+
+        td input {
+            width: 100%;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+        }
+
+        .select {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background-color: white;
+            font-size: 0.875rem;
+        }
+
+        /* Tab styles */
+        .tabs-list {
+            display: flex;
+            background-color: #f1f5f9;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .tab-trigger {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-trigger.active {
+            background-color: white;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #374151;
+            cursor: pointer;
+        }
+
+        .table th:hover {
+            background-color: #f1f5f9;
+        }
+
+        .table td {
+            font-size: 0.875rem;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        /* Score cell styles */
+        .score-cell {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* Heatmap styles */
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: auto repeat(5, 1fr);
+            gap: 0.25rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .heatmap-cell:hover {
+            border-color: var(--accent-color);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .heatmap-count {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .heatmap-rating {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            margin-top: 0.25rem;
+        }
+
+        .heatmap-items {
+            display: none;
+        }
+
+        .score-high {
+            background-color: #ffe4e6;
+            color: #be123c;
+        }
+
+        .score-medium {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .score-low {
+            background-color: #dcfce7;
+            color: #047857;
+        }
+
+        /* Dialog/Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        /* Heatmap styles */
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
+
+        .heatmap-cell {
+            position: relative;
+            height: 5rem;
+            width: 100%;
+            border-radius: 0.375rem;
+            padding: 0.25rem;
+            border: 1px solid white;
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .heatmap-count {
+            position: absolute;
+            right: 0.25rem;
+            top: 0.25rem;
+            font-size: 10px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .heatmap-items {
+            margin-top: 1rem;
+            overflow: hidden;
+            font-size: 10px;
+            line-height: 1.25;
+        }
+
+        .heatmap-item {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-bottom: 0.125rem;
+        }
+
+        /* Print styles */
+        @media print {
+            .no-print,
+            .header-right,
+            .tabs-list {
+                display: none !important;
+            }
+            
+            .header {
+                position: static;
+            }
+            
+            body {
+                background: white;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+        }
+
+        /* Responsive styles */
+        @media (min-width: 768px) {
+            .grid-cols-1 {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        /* Icon styles */
+        .icon {
+            width: 1rem;
+            height: 1rem;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .icon-sm {
+            width: 0.75rem;
+            height: 0.75rem;
+        }
+
+        /* SVG Icons */
+        .icon-shield { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'/%3E%3C/svg%3E"); }
+        .icon-download { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'/%3E%3C/svg%3E"); }
+        .icon-upload { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12'/%3E%3C/svg%3E"); }
+        .icon-refresh { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'/%3E%3C/svg%3E"); }
+        .icon-printer { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z'/%3E%3C/svg%3E"); }
+        .icon-plus { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 4v16m8-8H4'/%3E%3C/svg%3E"); }
+        .icon-trash { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'/%3E%3C/svg%3E"); }
+        .icon-search { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E"); }
+        .icon-check { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E"); }
+        .icon-x { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E"); }
+    
+[data-theme="dark"] .select, [data-theme="dark"] .input { background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-color); }
+[data-theme="dark"] .btn.btn-outline { border-color: var(--border-color); color: var(--text-primary); }
+
+[data-theme="dark"] .tabs-list { background-color: var(--bg-secondary); }
+[data-theme="dark"] .tab-trigger { color: var(--text-secondary); }
+[data-theme="dark"] .tab-trigger.active { background-color: var(--bg-card); color: var(--text-primary); }
+</style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="icon icon-shield" style="width: 1.5rem; height: 1.5rem; background-color: #334155;"></div>
+                <h1 class="text-xl font-semibold">OODA–CARVER Ops Risk Dashboard</h1>
+                <span class="tag">Serverless • GitHub Pages Ready</span>
+                <span id="selfTestTag" class="tag success ml-2">
+                    <div class="icon icon-check icon-sm mr-1"></div>
+                    Self‑tests OK
+                </span>
+            </div>
+            <div class="header-right no-print">
+                <label class="text-sm text-slate-600">Theme:</label>
+                <select id="themeSelect" class="select">
+                    <option value="auto">Auto</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+                <label class="text-sm text-slate-600">Scale:</label>
+                <select id="scaleSelect" class="select">
+                    <option value="5">1-5</option>
+                    <option value="10">1-10</option>
+                </select>
+                <label class="text-sm text-slate-600">Role:</label>
+                <select id="roleSelect" class="select">
+                    <option value="All">All</option>
+                    <option value="Ops">Ops</option>
+                    <option value="Sec">Sec</option>
+                    <option value="Comms">Comms</option>
+                </select>
+                <button id="resetBtn" class="btn btn-outline" title="Reset to sample dataset">
+                    <div class="icon icon-refresh mr-2"></div>Reset
+                </button>
+                <button id="uploadBtn" class="btn btn-outline">
+                    <div class="icon icon-upload mr-2"></div>Upload
+                </button>
+                <button id="exportCsvBtn" class="btn btn-outline">
+                    <div class="icon icon-download mr-2"></div>CSV
+                </button>
+                <button id="exportJsonBtn" class="btn btn-outline">
+                    <div class="icon icon-download mr-2"></div>JSON
+                </button>
+                <button id="exportMdBtn" class="btn btn-outline">
+                    <div class="icon icon-download mr-2"></div>Markdown
+                </button>
+                <button id="printBtn" class="btn btn-primary">
+                    <div class="icon icon-printer mr-2"></div>Print PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 py-6">
+        <div class="tabs-list no-print">
+            <div class="tab-trigger active" data-tab="dashboard">Dashboard</div>
+            <div class="tab-trigger" data-tab="heatmap">5×5 Heatmap</div>
+            <div class="tab-trigger" data-tab="report">Report</div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="mb-4 grid grid-cols-1 gap-4">
+                <!-- Portfolio Posture Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Portfolio Posture</h3>
+                    </div>
+                    <div class="card-content">
+                        <div style="height: 160px; display: flex; align-items: center; justify-content: center;">
+                            <div style="text-align: center;">
+                                <div id="avgRiskScore" style="font-size: 3rem; font-weight: bold; color: #e11d48;">0.00</div>
+                                <div class="text-sm text-slate-600">Average Risk Score (L×I)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Risks Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Top Risks</h3>
+                    </div>
+                    <div class="card-content">
+                        <ol id="topRisksList" style="list-style: decimal; padding-left: 1.25rem; font-size: 0.875rem;">
+                        </ol>
+                    </div>
+                </div>
+
+                <!-- Risk Distribution Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Risk Distribution</h3>
+                    </div>
+                    <div class="card-content">
+                        <div id="riskDistribution" style="height: 240px; overflow-x:auto;">
+                            <svg id="treemapSvg" width="100%" height="240" style="border-radius: 0.375rem;">
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search and Add Controls -->
+            <div class="mb-4 flex gap-4 items-center no-print">
+                <div class="flex items-center gap-2">
+                    <div class="icon icon-search"></div>
+                    <input id="searchInput" type="text" placeholder="Search assets..." class="input" style="width: 300px;">
+                </div>
+                <button id="addRowBtn" class="btn btn-primary">
+                    <div class="icon icon-plus mr-2"></div>Add Asset
+                </button>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr id="tableHeader">
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Heatmap Tab -->
+        <div id="heatmap" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">5×5 Risk Heatmap</h3>
+                </div>
+                <div class="card-content">
+                    <div id="heatmapGrid" class="heatmap-grid">
+                    </div>
+                    <div class="mt-4 text-sm text-slate-600">
+                        <p><strong>Method:</strong> Likelihood = avg(Accessibility, Vulnerability, Recognizability); Impact = avg(Criticality, Effect, Recuperability); Risk = Likelihood × Impact</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Tab -->
+        <div id="report" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Risk Assessment Report</h3>
+                </div>
+                <div class="card-content">
+                    <div id="reportContent">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload data (CSV or JSON)</h3>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <input type="file" id="fileInput" accept=".csv,.json" style="width: 100%;">
+            </div>
+            <p class="text-sm text-slate-600" style="margin-bottom: 1rem;">CSV headers: name,type,country,location,C,A,R,V,E,Rz,notes</p>
+            <div class="flex gap-2 justify-end">
+                <button id="cancelUploadBtn" class="btn btn-outline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Application state
+        let appState = {
+            rows: [],
+            filteredRows: [],
+            sortedRows: [],
+            searchQuery: '',
+            sortKey: 'score',
+            sortDir: 'desc',
+            role: 'All',
+            scale: 5,
+            theme: 'auto',
+            activeTab: 'dashboard'
+        };
+
+        // Default data
+        const DEFAULT_DATA = [
+            {
+                id: generateId(),
+                name: "Kivu Ridge VHF Site",
+                type: "VHF Comms",
+                country: "DRC",
+                location: "North Kivu",
+                C: 5, A: 4, R: 3, V: 4, E: 5, Rz: 5,
+                notes: "Primary ATC coverage; community tensions nearby; guarded 12h/day."
+            },
+            {
+                id: generateId(),
+                name: "Shamal Radar Tower",
+                type: "Primary Radar",
+                country: "Iraq",
+                location: "Nineveh",
+                C: 5, A: 3, R: 3, V: 3, E: 5, Rz: 4,
+                notes: "Dual-use air picture node; intermittent power grid stability."
+            },
+            {
+                id: generateId(),
+                name: "Coastal SATCOM Hub",
+                type: "SATCOM Relay",
+                country: "Somalia",
+                location: "Puntland",
+                C: 4, A: 4, R: 2, V: 3, E: 4, Rz: 4,
+                notes: "Backbone for remote sites; subject to cyclones; private guard force."
+            },
+            {
+                id: generateId(),
+                name: "Highland Fuel Depot",
+                type: "Logistics",
+                country: "Peru",
+                location: "Cajamarca",
+                C: 5, A: 3, R: 2, V: 4, E: 5, Rz: 5,
+                notes: "Feeds remote extraction site; protest risk; visible/identifiable target."
+            },
+            {
+                id: generateId(),
+                name: "Eastern Fiber POP",
+                type: "Telecom POP",
+                country: "Georgia",
+                location: "Kvemo Kartli",
+                C: 4, A: 2, R: 4, V: 3, E: 3, Rz: 3,
+                notes: "Regional backhaul; redundancy available; moderate recognizability."
+            }
+        ];
+
+        // Utility functions
+        function generateId() {
+            return 'id-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function avg(nums) {
+            return +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2);
+        }
+
+        function clamp1to5(n) {
+            return Math.max(1, Math.min(5, Number(n) || 1));
+        }
+
+        function clamp1to10(n) {
+            return Math.max(1, Math.min(10, Number(n) || 1));
+        }
+
+        function clampByScale(n, scale) {
+            if (scale === 10) {
+                return clamp1to10(n);
+            }
+            return clamp1to5(n);
+        }
+
+        function computeDerived(row, scale = 5) {
+            const L = avg([row.A, row.V, row.Rz]);
+            const I = avg([row.C, row.E, row.R]);
+            const score = +(L * I).toFixed(2);
+            
+            // Total CARVER score
+            const totalCarver = row.C + row.A + row.R + row.V + row.E + row.Rz;
+            
+            // P(a) calculation - Total CARVER / max possible score
+            const maxPossible = scale * 6; // 6 CARVER factors
+            const pa = +(totalCarver / maxPossible).toFixed(3);
+            
+            return { L, I, score, totalCarver, pa };
+        }
+
+        function bucket(v) {
+            return Math.max(1, Math.min(5, Math.round(v)));
+        }
+
+        function download(filename, text, type = "text/plain;charset=utf-8") {
+            const blob = new Blob([text], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Data persistence
+        function saveToLocalStorage() {
+            localStorage.setItem("carver_rows_v1", JSON.stringify(appState.rows));
+            localStorage.setItem("carver_role", appState.role);
+            localStorage.setItem("carver_scale", appState.scale.toString());
+            localStorage.setItem("carver_theme", appState.theme);
+        }
+
+        function loadFromLocalStorage() {
+            const stored = localStorage.getItem("carver_rows_v1");
+            const storedRole = localStorage.getItem("carver_role");
+            const storedScale = localStorage.getItem("carver_scale");
+            const storedTheme = localStorage.getItem("carver_theme");
+            
+            if (stored) {
+                appState.rows = JSON.parse(stored);
+            } else {
+                appState.rows = [...DEFAULT_DATA];
+            }
+            
+            if (storedRole) {
+                appState.role = storedRole;
+            }
+
+            if (storedScale && ['5', '10'].includes(storedScale)) {
+                appState.scale = parseInt(storedScale);
+            }
+
+            if (storedTheme && ['auto', 'light', 'dark'].includes(storedTheme)) {
+                appState.theme = storedTheme;
+            }
+
+            // Apply theme
+            document.documentElement.setAttribute('data-theme', appState.theme);
+        }
+
+        // CSV/JSON handling
+        function toCSV(rows) {
+            const fields = ["name","type","country","location","C","A","R","V","E","Rz","totalCarver","pa","L","I","score","notes"];
+            const data = rows.map(r => {
+                const derived = computeDerived(r, appState.scale);
+                return { ...r, ...derived };
+            });
+            return Papa.unparse({ fields, data });
+        }
+        function fromCSV(csv) {
+            const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+            if (parsed.errors?.length) throw new Error(parsed.errors[0].message);
+            
+            return parsed.data.map((r) => ({
+                id: generateId(),
+                name: r.name || r.Name || "Unnamed",
+                type: r.type || r.Type || "Unknown",
+                country: r.country || r.Country || "",
+                location: r.location || r.Location || "",
+                C: clampByScale(r.C || r.Criticality, appState.scale),
+                A: clampByScale(r.A || r.Accessibility, appState.scale),
+                R: clampByScale(r.R || r.Recuperability, appState.scale),
+                V: clampByScale(r.V || r.Vulnerability, appState.scale),
+                E: clampByScale(r.E || r.Effect, appState.scale),
+                Rz: clampByScale(r.Rz || r.Recognizability, appState.scale),
+                notes: r.notes || r.Notes || ""
+            }));
+        }
+
+        // Report generation
+        function buildMarkdownReport(rows) {
+            const now = new Date().toISOString();
+            const enriched = rows.map(r => ({ ...r, ...computeDerived(r) })).sort((a, b) => b.score - a.score);
+            const top3 = enriched.slice(0, 3);
+            const lines = [];
+            
+            lines.push(`# OODA–CARVER Risk Report`);
+            lines.push(`_Generated: ${now}_`);
+            lines.push("");
+            lines.push(`## Portfolio Summary`);
+            lines.push(`* Average Likelihood: ${avg(enriched.map(r => r.L)).toFixed(2)}`);
+            lines.push(`* Average Impact: ${avg(enriched.map(r => r.I)).toFixed(2)}`);
+            lines.push(`* Average Risk (L×I): ${avg(enriched.map(r => r.score)).toFixed(2)}`);
+            lines.push("");
+            lines.push(`## Top 3 Risks`);
+            top3.forEach((r, i) => lines.push(`${i + 1}. **${r.name}** (${r.type}, ${r.country}) — Risk: ${r.score}  
+    L=${r.L} (A=${r.A}, V=${r.V}, Rz=${r.Rz}); I=${r.I} (C=${r.C}, E=${r.E}, R=${r.R})  
+    Notes: ${r.notes || "—"}`));
+            lines.push("");
+            lines.push(`## Full Register`);
+            lines.push(`| Asset | Type | Ctry | Loc | C | A | R | V | E | Rz | L | I | Risk | Notes |`);
+            lines.push(`|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|`);
+            enriched.forEach(r => lines.push(`| ${r.name} | ${r.type} | ${r.country} | ${r.location} | ${r.C} | ${r.A} | ${r.R} | ${r.V} | ${r.E} | ${r.Rz} | ${r.L} | ${r.I} | ${r.score} | ${(r.notes || '').replace(/\|/g, '/')} |`));
+            lines.push("");
+            lines.push(`---\n_Method: L = avg(A,V,Rz); I = avg(C,E,R); Risk = L×I. Scale 1–5._`);
+            
+            return lines.join("\n");
+        }
+
+        // Self tests
+        function runSelfTests() {
+            const msgs = [];
+            function assert(cond, msg) { if (!cond) throw new Error(msg); }
+            
+            try {
+                // Test 1: computeDerived
+                const d = computeDerived({ A:5, V:5, Rz:5, C:5, E:5, R:5 });
+                assert(d.L === 5 && d.I === 5 && d.score === 25, "computeDerived should yield L=5,I=5,score=25 for all 5s");
+                msgs.push("computeDerived ✅");
+
+                // Test 2: CSV roundtrip
+                const csv = toCSV([{ name:"A", type:"t", country:"c", location:"l", C:1, A:2, R:3, V:4, E:5, Rz:1, notes:"n" }]);
+                const parsed = fromCSV(csv);
+                assert(Array.isArray(parsed) && parsed.length === 1 && parsed[0].name === "A", "CSV roundtrip failed");
+                msgs.push("CSV/JSON roundtrip ✅");
+
+                // Test 3: Markdown export
+                const md = buildMarkdownReport([{ name:"A", type:"t", country:"c", location:"l", C:1, A:2, R:3, V:4, E:5, Rz:1, notes:"n" }]);
+                assert(typeof md === "string" && md.includes("# OODA–CARVER Risk Report"), "Markdown header missing");
+                msgs.push("Markdown export ✅");
+
+                return { ok: true, msgs };
+            } catch (e) {
+                console.error("Self-test error:", e);
+                msgs.push("Self-test error: " + e.message);
+                return { ok: false, msgs };
+            }
+        }
+
+        
+// Vertical bar chart for Risk Distribution (responsive & scrollable, dark-mode aware)
+function renderTreemap() {
+    const svg = document.getElementById('treemapSvg');
+    const container = document.getElementById('riskDistribution');
+    const baseHeight = 240;
+    const margin = { top: 10, right: 16, bottom: 64, left: 16 };
+    
+    // enable horizontal scroll when many bars
+    container.style.overflowX = 'auto';
+    container.style.whiteSpace = 'nowrap';
+    
+    svg.innerHTML = '';
+    const dataRows = appState.enrichedRows || [];
+    
+    if (dataRows.length === 0) {
+        svg.setAttribute('width', container.clientWidth);
+        svg.setAttribute('height', baseHeight);
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', (container.clientWidth || 400) / 2);
+        text.setAttribute('y', baseHeight / 2);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('fill', 'var(--text-secondary)');
+        text.setAttribute('font-size', '14');
+        text.textContent = 'No data available';
+        svg.appendChild(text);
+        return;
+    }
+    
+    const data = [...dataRows]
+        .sort((a, b) => b.score - a.score)
+        .map(r => ({ name: r.name, value: r.score, type: r.type }));
+    
+    const n = data.length;
+    const barWidth = 34;
+    const gap = 8;
+    const width = Math.max(container.clientWidth, n * (barWidth + gap) + margin.left + margin.right);
+    const height = baseHeight;
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    
+    const plotHeight = height - margin.top - margin.bottom;
+    const x0 = margin.left;
+    const y0 = height - margin.bottom;
+    const maxVal = Math.max(...data.map(d => d.value));
+    const yScale = v => (v / Math.max(1, maxVal)) * plotHeight;
+    
+    // axis baseline
+    const axis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    axis.setAttribute('x1', margin.left);
+    axis.setAttribute('x2', width - margin.right);
+    axis.setAttribute('y1', y0 + 0.5);
+    axis.setAttribute('y2', y0 + 0.5);
+    axis.setAttribute('stroke', 'var(--border-color)');
+    svg.appendChild(axis);
+    
+    function colorFor(v) {
+        if (v >= 20) return '#dc2626';   // Critical
+        if (v >= 15) return '#ea580c';   // High
+        if (v >= 10) return '#d97706';   // Medium
+        if (v >= 5)  return '#ca8a04';   // Low
+        return '#16a34a';                // Very Low
+    }
+    
+    data.forEach((d, i) => {
+        const x = x0 + i * (barWidth + gap);
+        const h = yScale(d.value);
+        const y = y0 - h;
+        const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bar.setAttribute('x', x);
+        bar.setAttribute('y', y);
+        bar.setAttribute('width', barWidth);
+        bar.setAttribute('height', Math.max(2, h));
+        bar.setAttribute('fill', colorFor(d.value));
+        bar.setAttribute('rx', 3);
+        bar.style.cursor = 'pointer';
+        bar.addEventListener('mouseenter', () => bar.setAttribute('opacity', '0.85'));
+        bar.addEventListener('mouseleave', () => bar.setAttribute('opacity', '1'));
+        svg.appendChild(bar);
+        
+        // Hover info
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = `${d.name} (${d.type}) • Risk ${d.value.toFixed(1)}`;
+        bar.appendChild(title);
+        
+        // value label
+        const vt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        vt.setAttribute('x', x + barWidth / 2);
+        vt.setAttribute('y', Math.max(12, y - 6));
+        vt.setAttribute('text-anchor', 'middle');
+        vt.setAttribute('font-size', '10');
+        vt.setAttribute('fill', 'var(--text-secondary)');
+        vt.textContent = d.value.toFixed(1);
+        svg.appendChild(vt);
+        
+        // name label rotated
+        const nt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const lx = x + barWidth / 2;
+        const ly = y0 + 14;
+        nt.setAttribute('x', lx);
+        nt.setAttribute('y', ly);
+        nt.setAttribute('text-anchor', 'end');
+        nt.setAttribute('transform', `rotate(-45 ${lx} ${ly})`);
+        nt.setAttribute('font-size', '10');
+        nt.setAttribute('fill', 'var(--text-muted)');
+        const maxChars = 16;
+        nt.textContent = d.name.length > maxChars ? d.name.slice(0, maxChars - 1) + '…' : d.name;
+        svg.appendChild(nt);
+    });
+}
+function processData() {
+            // Add derived fields
+            appState.enrichedRows = appState.rows.map(r => ({ ...r, ...computeDerived(r, appState.scale) }));
+            
+            // Filter
+            appState.filteredRows = appState.enrichedRows.filter(r => {
+                const searchStr = `${r.name} ${r.type} ${r.country} ${r.location} ${r.notes}`.toLowerCase();
+                return searchStr.includes(appState.searchQuery.toLowerCase());
+            });
+            
+            // Sort
+            appState.sortedRows = [...appState.filteredRows].sort((a, b) => {
+                const dir = appState.sortDir === "asc" ? 1 : -1;
+                return (a[appState.sortKey] > b[appState.sortKey] ? 1 : a[appState.sortKey] < b[appState.sortKey] ? -1 : 0) * dir;
+            });
+        }
+
+        // Role-based columns
+        const ROLE_COLUMNS = {
+            All: ["name", "type", "country", "location", "C", "A", "R", "V", "E", "Rz", "totalCarver", "pa", "L", "I", "score", "notes"],
+            Ops: ["name", "type", "country", "location", "C", "R", "E", "totalCarver", "pa", "I", "score", "notes"],
+            Sec: ["name", "type", "country", "location", "A", "V", "Rz", "totalCarver", "pa", "L", "score", "notes"],
+            Comms: ["name", "type", "country", "location", "V", "E", "Rz", "totalCarver", "pa", "L", "I", "score", "notes"]
+        };
+
+        const COLUMN_LABELS = {
+            name:"Asset", type:"Type", country:"Country", location:"Location",
+            C:"C", A:"A", R:"R", V:"V", E:"E", Rz:"Rz", 
+            totalCarver:"Total CARVER", pa:"P(a)", 
+            L:"L", I:"I", score:"Risk", notes:"Notes"
+        };
+
+        function getRoleColumns() {
+            return ROLE_COLUMNS[appState.role] || ROLE_COLUMNS.All;
+        }
+
+        // UI rendering functions
+        function renderDashboard() {
+            // Update average risk score
+            const avgScore = appState.enrichedRows.length > 0 ? avg(appState.enrichedRows.map(r => r.score)) : 0;
+            document.getElementById('avgRiskScore').textContent = avgScore.toFixed(2);
+            
+            // Update top risks
+            const topRisks = [...appState.enrichedRows].sort((a, b) => b.score - a.score).slice(0, 3);
+            const topRisksList = document.getElementById('topRisksList');
+            topRisksList.innerHTML = topRisks.map(r => 
+                `<li style="margin-bottom: 0.25rem;">
+                    <span style="font-weight: 600;">${r.name}</span> 
+                    <span style="color: #64748b;">— ${r.type}</span> 
+                    <span class="tag" style="margin-left: 0.5rem;">${r.country}</span> 
+                    <span style="margin-left: 0.5rem; font-size: 0.75rem;">Score: ${r.score}</span>
+                </li>`
+            ).join('');
+            
+            // Render treemap
+            renderTreemap();
+            
+            // Render table
+            renderTable();
+        }
+
+        function renderTable() {
+            const columns = getRoleColumns();
+            const header = document.getElementById('tableHeader');
+            const body = document.getElementById('tableBody');
+            
+            // Render header
+            header.innerHTML = columns.map(col => 
+                `<th onclick="sortBy('${col}')" style="cursor: pointer;">
+                    ${COLUMN_LABELS[col]} ${appState.sortKey === col ? (appState.sortDir === 'asc' ? '↑' : '↓') : ''}
+                </th>`
+            ).join('') + '<th class="no-print">Actions</th>';
+            
+            // Render body
+            body.innerHTML = appState.sortedRows.map(row => 
+                `<tr>
+                    ${columns.map(col => {
+                        if (col === 'score' || col === 'L' || col === 'I') {
+                            const value = Number(row[col]);
+                            const scoreClass = value >= 4 ? 'score-high' : value >= 3 ? 'score-medium' : 'score-low';
+                            return `<td><span class="score-cell ${scoreClass}">${value}</span></td>`;
+                        } else if (col === 'totalCarver') {
+                            return `<td style="text-align: center; font-weight: bold;">${row.totalCarver || 0}</td>`;
+                        } else if (col === 'pa') {
+                            return `<td style="text-align: center;">${(row.pa || 0).toFixed(3)}</td>`;
+                        } else if (['C', 'A', 'R', 'V', 'E', 'Rz'].includes(col)) {
+                            const maxVal = appState.scale;
+                            return `<td><input type="number" min="1" max="${maxVal}" value="${row[col]}" onchange="updateCell('${row.id}', '${col}', clampByScale(this.value, ${appState.scale}))" style="width: 60px; padding: 0.25rem; border: 1px solid #d1d5db; border-radius: 0.25rem;"></td>`;
+                        } else if (col === 'notes') {
+                            return `<td><input type="text" value="${row[col] || ''}" onchange="updateCell('${row.id}', '${col}', this.value)" style="width: 200px; padding: 0.25rem; border: 1px solid #d1d5db; border-radius: 0.25rem;"></td>`;
+                        } else {
+                            return `<td><input type="text" value="${row[col] || ''}" onchange="updateCell('${row.id}', '${col}', this.value)" style="width: 120px; padding: 0.25rem; border: 1px solid #d1d5db; border-radius: 0.25rem;"></td>`;
+                        }
+                    }).join('')}
+                    <td class="no-print">
+                        <button onclick="deleteRow('${row.id}')" class="btn" style="padding: 0.25rem; background: none; border: none; color: #dc2626; cursor: pointer;">
+                            <div class="icon icon-trash"></div>
+                        </button>
+                    </td>
+                </tr>`
+            ).join('');
+        }
+
+        function renderHeatmap() {
+            const grid = document.getElementById('heatmapGrid');
+            const cells = new Map();
+            
+            // Build cell data
+            appState.enrichedRows.forEach(r => {
+                const Lb = bucket(r.L);
+                const Ib = bucket(r.I);
+                const key = `${Ib}-${Lb}`;
+                if (!cells.has(key)) cells.set(key, []);
+                cells.get(key).push(r);
+            });
+            
+            // Risk rating function
+            function getRiskRating(risk) {
+                if (risk >= 20) return 'Critical';
+                if (risk >= 15) return 'High';
+                if (risk >= 10) return 'Medium';
+                if (risk >= 5) return 'Low';
+                return 'Very Low';
+            }
+            
+            // Color function
+            function getColor(count, i, j) {
+                const risk = i * j;
+                if (risk >= 16) return 'bg-rose-400';
+                if (risk >= 9) return 'bg-amber-400';
+                if (risk >= 4) return 'bg-yellow-300';
+                return 'bg-emerald-300';
+            }
+            
+            // Build grid HTML
+            let html = '<div></div>'; // Empty top-left
+            
+            // Column headers
+            for (let c = 1; c <= 5; c++) {
+                html += `<div class="text-center text-xs text-slate-600">L${c}</div>`;
+            }
+            
+            // Rows
+            for (let rowI = 5; rowI >= 1; rowI--) {
+                // Row header
+                html += `<div class="flex items-center justify-end pr-1 text-xs text-slate-600">I${rowI}</div>`;
+                
+                // Cells
+                for (let colL = 1; colL <= 5; colL++) {
+                    const key = `${rowI}-${colL}`;
+                    const items = cells.get(key) || [];
+                    const colorClass = getColor(items.length, rowI, colL);
+                    const riskScore = rowI * colL;
+                    const riskRating = getRiskRating(riskScore);
+                    
+                    const tooltipContent = items.length > 0 
+                        ? `Risk Rating: ${riskRating} (${riskScore})\\nAssets:\\n${items.map(x => `• ${x.name} (${x.score.toFixed(1)})`).join('\\n')}`
+                        : `Risk Rating: ${riskRating} (${riskScore})\\nNo assets in this category`;
+                    
+                    html += `<div class="heatmap-cell ${colorClass}"
+                                  onmouseover="showHeatmapTooltip(event, '${riskRating}', ${riskScore}, ${JSON.stringify(items).replace(/"/g, '&quot;')})"
+                                  onmouseout="hideHeatmapTooltip()">
+                        <div class="heatmap-count">${items.length}</div>
+                        <div class="heatmap-rating">${riskRating}</div>
+                        <div class="heatmap-items">
+                            ${items.slice(0, 3).map(x => `<div class="heatmap-item">• ${x.name}</div>`).join('')}
+                            ${items.length > 3 ? `<div class="heatmap-item italic">+${items.length - 3} more</div>` : ''}
+                        </div>
+                    </div>`;
+                }
+            }
+            
+            // Bottom labels
+            html += '<div></div>'; // Empty bottom-left
+            html += '<div class="col-span-5 text-center text-xs text-slate-500">Likelihood →</div>';
+            
+            grid.innerHTML = html;
+        }
+
+        // Heatmap tooltip functions
+        
+function showHeatmapTooltip(event, rating, score, items) {
+    let tooltip = document.getElementById('heatmapTooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'heatmapTooltip';
+        document.body.appendChild(tooltip);
+    }
+    function bgFor(r) {
+        if (r === 'Critical') return '#dc2626';
+        if (r === 'High') return '#ea580c';
+        if (r === 'Medium') return '#d97706';
+        if (r === 'Low') return '#ca8a04';
+        return '#16a34a';
+    }
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = bgFor(rating);
+    tooltip.style.color = '#fff';
+    tooltip.style.border = 'none';
+    tooltip.style.borderRadius = '0.5rem';
+    tooltip.style.padding = '0.75rem';
+    tooltip.style.boxShadow = 'var(--shadow)';
+    tooltip.style.zIndex = '1000';
+    tooltip.style.maxWidth = '320px';
+    tooltip.style.fontSize = '0.875rem';
+    tooltip.style.pointerEvents = 'none';
+
+    let htmlStr = `<div style="font-weight:700; margin-bottom:0.25rem;">${rating}</div>`;
+    htmlStr += `<div style="opacity:0.9; margin-bottom:0.5rem;">Risk Score: ${score}</div>`;
+    if (items.length) {
+        htmlStr += `<div style="font-weight:600; margin-bottom:0.25rem;">Assets (${items.length}):</div>`;
+        htmlStr += items.slice(0,6).map(x => `<div>• ${x.name} (${x.score.toFixed(1)})</div>`).join('');
+        if (items.length > 6) htmlStr += `<div style="opacity:0.9; font-style:italic;">+${items.length-6} more</div>`;
+    } else {
+        htmlStr += `<div style="opacity:0.9; font-style:italic;">No assets in this category</div>`;
+    }
+    tooltip.innerHTML = htmlStr;
+    tooltip.style.display = 'block';
+
+    const rect = event.target.getBoundingClientRect();
+    tooltip.style.left = (rect.right + 10) + 'px';
+    tooltip.style.top = rect.top + 'px';
+    const tRect = tooltip.getBoundingClientRect();
+    if (tRect.right > window.innerWidth) tooltip.style.left = (rect.left - tRect.width - 10) + 'px';
+    if (tRect.bottom > window.innerHeight) tooltip.style.top = (rect.bottom - tRect.height) + 'px';
+}
+function hideHeatmapTooltip() {
+            const tooltip = document.getElementById('heatmapTooltip');
+            if (tooltip) {
+                tooltip.style.display = 'none';
+            }
+        }
+
+        function renderReport() {
+            const content = document.getElementById('reportContent');
+            const enriched = appState.enrichedRows.sort((a, b) => b.score - a.score);
+            const top3 = enriched.slice(0, 3);
+            
+            // Risk rating function
+            function getRiskRating(score) {
+                if (score >= 20) return 'Critical';
+                if (score >= 15) return 'High';
+                if (score >= 10) return 'Medium';
+                if (score >= 5) return 'Low';
+                return 'Very Low';
+            }
+            
+            // Calculate P(a) statistics
+            const avgPa = avg(enriched.map(r => r.pa));
+            const maxPa = Math.max(...enriched.map(r => r.pa));
+            const minPa = Math.min(...enriched.map(r => r.pa));
+            
+            let html = `
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Portfolio Summary</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem;">
+                        <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Risk Metrics</h3>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="margin-bottom: 0.25rem;">Average Likelihood: <strong>${avg(enriched.map(r => r.L)).toFixed(2)}</strong></li>
+                            <li style="margin-bottom: 0.25rem;">Average Impact: <strong>${avg(enriched.map(r => r.I)).toFixed(2)}</strong></li>
+                            <li style="margin-bottom: 0.25rem;">Average Risk (L×I): <strong>${avg(enriched.map(r => r.score)).toFixed(2)}</strong></li>
+                            <li>Overall Rating: <strong>${getRiskRating(avg(enriched.map(r => r.score)))}</strong></li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem;">
+                        <h3 style="font-weight: 600; margin-bottom: 0.5rem;">CARVER P(a) Analysis</h3>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="margin-bottom: 0.25rem;">Average P(a): <strong>${avgPa.toFixed(3)}</strong></li>
+                            <li style="margin-bottom: 0.25rem;">Highest P(a): <strong>${maxPa.toFixed(3)}</strong></li>
+                            <li style="margin-bottom: 0.25rem;">Lowest P(a): <strong>${minPa.toFixed(3)}</strong></li>
+                            <li>Scale: <strong>1-${appState.scale}</strong></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Top 3 Risks</h2>
+                <div style="margin-bottom: 2rem;">
+                    ${top3.map((r, i) => `
+                        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1rem;">
+                            <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">${i + 1}. ${r.name}</h3>
+                                    <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">${r.type} • ${r.country} • ${r.location}</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 2rem; font-weight: bold; color: var(--accent-color);">${r.score}</div>
+                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">${getRiskRating(r.score)}</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <h4 style="font-weight: 600; margin-bottom: 0.25rem;">CARVER Scores</h4>
+                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                                        C=${r.C}, A=${r.A}, R=${r.R}<br>
+                                        V=${r.V}, E=${r.E}, Rz=${r.Rz}
+                                    </div>
+                                    <div style="font-weight: 600; margin-top: 0.25rem;">Total: ${r.totalCarver}</div>
+                                </div>
+                                <div>
+                                    <h4 style="font-weight: 600; margin-bottom: 0.25rem;">Risk Analysis</h4>
+                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                                        Likelihood: ${r.L.toFixed(2)}<br>
+                                        Impact: ${r.I.toFixed(2)}
+                                    </div>
+                                    <div style="font-weight: 600; margin-top: 0.25rem;">P(a): ${r.pa.toFixed(3)}</div>
+                                </div>
+                            </div>
+                            
+                            ${r.notes ? `<div style="background: var(--bg-secondary); border-radius: 0.25rem; padding: 0.75rem; margin-top: 1rem;">
+                                <h4 style="font-weight: 600; margin-bottom: 0.25rem;">Notes</h4>
+                                <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0;">${r.notes}</p>
+                            </div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Risk Distribution by Rating</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                    ${['Critical', 'High', 'Medium', 'Low', 'Very Low'].map(rating => {
+                        const count = enriched.filter(r => getRiskRating(r.score) === rating).length;
+                        const percentage = ((count / enriched.length) * 100).toFixed(1);
+                        return `
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 1rem; text-align: center;">
+                                <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">${count}</div>
+                                <div style="font-weight: 600; margin: 0.25rem 0;">${rating}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">${percentage}%</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem;">Methodology</h2>
+                <div style="background: var(--bg-secondary); border-radius: 0.5rem; padding: 1.5rem;">
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                        <strong>Risk Calculation:</strong> Likelihood (L) = avg(Accessibility, Vulnerability, Recognizability); 
+                        Impact (I) = avg(Criticality, Effect, Recuperability); Risk Score = L × I
+                    </p>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                        <strong>CARVER Analysis:</strong> Total CARVER = sum of all six factors (C+A+R+V+E+Rz); 
+                        P(a) = Total CARVER ÷ Maximum Possible Score (${appState.scale * 6})
+                    </p>
+                    <p style="margin: 0; color: var(--text-secondary);">
+                        <strong>Risk Ratings:</strong> Critical (≥20), High (15-19), Medium (10-14), Low (5-9), Very Low (<5)
+                    </p>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+
+        // Tab switching functionality
+        function switchTab(tabName) {
+            appState.activeTab = tabName;
+            
+            // Update tab triggers
+            document.querySelectorAll('.tab-trigger').forEach(trigger => {
+                trigger.classList.remove('active');
+                if (trigger.dataset.tab === tabName) {
+                    trigger.classList.add('active');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            const activeContent = document.getElementById(tabName);
+            if (activeContent) {
+                activeContent.classList.add('active');
+            }
+            
+            // Render the appropriate content
+            render();
+        }
+
+        // Event handlers
+        function handleThemeChange() {
+            const themeSelect = document.getElementById('themeSelect');
+            appState.theme = themeSelect.value;
+            document.documentElement.setAttribute('data-theme', appState.theme);
+            localStorage.setItem('ooda_theme', appState.theme);
+        }
+
+        function handleScaleChange() {
+            const scaleSelect = document.getElementById('scaleSelect');
+            appState.scale = parseInt(scaleSelect.value);
+            
+            // Clamp existing values to new scale
+            appState.rows = appState.rows.map(row => ({
+                ...row,
+                C: clampByScale(row.C, appState.scale),
+                A: clampByScale(row.A, appState.scale),
+                R: clampByScale(row.R, appState.scale),
+                V: clampByScale(row.V, appState.scale),
+                E: clampByScale(row.E, appState.scale),
+                Rz: clampByScale(row.Rz, appState.scale)
+            }));
+            
+            saveData();
+            processData();
+            render();
+            wireTopActions();
+        }
+
+        function handleRoleChange() {
+            const roleSelect = document.getElementById('roleSelect');
+            appState.role = roleSelect.value;
+            localStorage.setItem('ooda_role', appState.role);
+            render();
+        }
+
+        function sortBy(column) {
+            if (appState.sortKey === column) {
+                appState.sortDir = appState.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                appState.sortKey = column;
+                appState.sortDir = 'desc';
+            }
+            processData();
+            render();
+            wireTopActions();
+        }
+
+        function updateCell(id, field, value) {
+            const row = appState.rows.find(r => r.id === id);
+            if (row) {
+                if (['C', 'A', 'R', 'V', 'E', 'Rz'].includes(field)) {
+                    row[field] = clampByScale(value, appState.scale);
+                } else {
+                    row[field] = value;
+                }
+                saveData();
+                processData();
+                render();
+            }
+        }
+
+        function deleteRow(id) {
+            if (confirm('Are you sure you want to delete this asset?')) {
+                appState.rows = appState.rows.filter(r => r.id !== id);
+                saveData();
+                processData();
+                render();
+            }
+        }
+
+        function render() {
+            if (appState.activeTab === 'dashboard') {
+                renderDashboard();
+            } else if (appState.activeTab === 'heatmap') {
+                renderHeatmap();
+            } else if (appState.activeTab === 'report') {
+                renderReport();
+            }
+        }
+
+        // Initialize application
+        
+// Button and input wiring
+function saveData(){ saveToLocalStorage(); }
+
+function wireTopActions(){
+    const uploadBtn = document.getElementById('uploadBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const exportMdBtn = document.getElementById('exportMdBtn');
+    const printBtn = document.getElementById('printBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const addRowBtn = document.getElementById('addRowBtn');
+    const searchInput = document.getElementById('searchInput');
+    const fileInput = document.getElementById('fileInput');
+    const uploadModal = document.getElementById('uploadModal');
+    const cancelUploadBtn = document.getElementById('cancelUploadBtn');
+
+    if (uploadBtn) uploadBtn.addEventListener('click', ()=>{ uploadModal.classList.remove('hidden'); });
+    if (cancelUploadBtn) cancelUploadBtn.addEventListener('click', ()=>{ uploadModal.classList.add('hidden'); fileInput.value=''; });
+
+    if (fileInput) fileInput.addEventListener('change', async (e)=>{
+        const f = e.target.files && e.target.files[0];
+        if(!f) return;
+        const text = await f.text();
+        let rows;
+        try {
+            if (f.name.toLowerCase().endswith('.json')){
+                const json = JSON.parse(text);
+                rows = Array.isArray(json) ? json : (Array.isArray(json.assets) ? json.assets : []);
+            } else {
+                rows = fromCSV(text);
+            }
+            // Ensure ids and clamp to scale
+            appState.rows = rows.map(r => ({
+                id: r.id || (typeof crypto!=='undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)),
+                name: r.name || 'Unnamed',
+                type: r.type || 'Unknown',
+                country: r.country || '',
+                location: r.location || '',
+                C: clampByScale(Number(r.C||0), appState.scale),
+                A: clampByScale(Number(r.A||0), appState.scale),
+                R: clampByScale(Number(r.R||0), appState.scale),
+                V: clampByScale(Number(r.V||0), appState.scale),
+                E: clampByScale(Number(r.E||0), appState.scale),
+                Rz: clampByScale(Number(r.Rz||0), appState.scale),
+                notes: r.notes || ''
+            }));
+            saveData(); processData(); render();
+        } catch(err){
+            alert('Upload failed: ' + err.message);
+            console.error(err);
+        } finally {
+            uploadModal.classList.add('hidden');
+            e.target.value = '';
+        }
+    });
+
+    if (exportCsvBtn) exportCsvBtn.addEventListener('click', ()=>{
+        download('carver_assets.csv', toCSV(appState.rows), 'text/csv;charset=utf-8');
+    });
+    if (exportJsonBtn) exportJsonBtn.addEventListener('click', ()=>{
+        download('carver_assets.json', JSON.stringify(appState.rows, null, 2), 'application/json;charset=utf-8');
+    });
+    if (exportMdBtn) exportMdBtn.addEventListener('click', ()=>{
+        const md = buildMarkdownReport(appState.rows);
+        download('carver_report.md', md, 'text/markdown;charset=utf-8');
+    });
+    if (printBtn) printBtn.addEventListener('click', ()=>{
+        switchTab('report');
+        setTimeout(()=>window.print(), 50);
+    });
+    if (resetBtn) resetBtn.addEventListener('click', ()=>{
+        if (confirm('Reset to the sample dataset?')) {
+            appState.rows = [...DEFAULT_DATA];
+            saveData(); processData(); render();
+        }
+    });
+    if (addRowBtn) addRowBtn.addEventListener('click', ()=>{
+        const blank = { id: (typeof crypto!=='undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)), 
+            name:'', type:'', country:'', location:'',
+            C:1, A:1, R:1, V:1, E:1, Rz:1, notes:'' };
+        appState.rows.push(blank);
+        saveData(); processData(); render();
+    });
+    if (searchInput) searchInput.addEventListener('input', (e)=>{
+        appState.searchQuery = e.target.value || '';
+        processData(); render();
+    });
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+            loadFromLocalStorage();
+            processData();
+            render();
+            wireTopActions();
+            
+            // Set initial selector values
+            document.getElementById('themeSelect').value = appState.theme;
+            document.getElementById('scaleSelect').value = appState.scale;
+            document.getElementById('roleSelect').value = appState.role;
+            
+            // Event listeners
+            document.getElementById('themeSelect').addEventListener('change', handleThemeChange);
+            document.getElementById('scaleSelect').addEventListener('change', handleScaleChange);
+            document.getElementById('roleSelect').addEventListener('change', handleRoleChange);
+            
+            // Tab switching event listeners
+            document.querySelectorAll('.tab-trigger').forEach(trigger => {
+                trigger.addEventListener('click', () => {
+                    switchTab(trigger.dataset.tab);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+
