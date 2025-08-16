@@ -1658,7 +1658,7 @@ function wireTopActions(){
         const text = await f.text();
         let rows;
         try {
-            if (f.name.toLowerCase().endswith('.json')){
+            if (f.name.toLowerCase().endsWith('.json')){
                 const json = JSON.parse(text);
                 rows = Array.isArray(json) ? json : (Array.isArray(json.assets) ? json.assets : []);
             } else {
