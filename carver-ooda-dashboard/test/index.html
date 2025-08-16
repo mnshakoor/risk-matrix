@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OODA–CARVER Ops Risk Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+    <!-- Original HTML content here -->
+    <header class="header">
+        <div class="header-content flex items-center justify-between">
+            <div class="header-left flex items-center gap-2">
+                <h1 class="text-xl font-semibold">OODA–CARVER Ops Risk Dashboard</h1>
+                <span class="text-sm text-muted">Self-tests OK</span>
+            </div>
+            <div class="header-right flex items-center gap-2">
+                <label for="themeSelect" class="text-sm">Theme:</label>
+                <select id="themeSelect" class="select select-sm">
+                    <option value="auto">Auto</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+                <label for="scaleSelect" class="text-sm">Scale:</label>
+                <select id="scaleSelect" class="select select-sm">
+                    <option value="5">1-5</option>
+                    <option value="10">1-10</option>
+                </select>
+                <label for="roleSelect" class="text-sm">Role:</label>
+                <select id="roleSelect" class="select select-sm">
+                    <option value="All">All</option>
+                    <option value="Ops">Ops</option>
+                    <option value="Sec">Sec</option>
+                    <option value="Comms">Comms</option>
+                </select>
+                <button id="exportCsvBtn" class="btn btn--outline btn--sm" title="Export CSV">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 20V12M12 20L8 16M12 20L16 16M4 8H20M4 4H20V8H4V4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg> CSV
+                </button>
+                <button id="exportMdBtn" class="btn btn--outline btn--sm" title="Export MD">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 4H20V20H4V4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg> MD
+                </button>
+                <button id="printBtn" class="btn btn--outline btn--sm" title="Print">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 20H6V4H18V20ZM14 16H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg> Print
+                </button>
+                <button id="resetBtn" class="btn btn--outline btn--sm" title="Reset Data">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 12A9 9 0 1 1 21 12A9 9 0 0 1 3 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg> Reset
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="tabs-list">
+            <button class="tab-trigger" data-tab="dashboard">Dashboard</button>
+            <button class="tab-trigger" data-tab="table">Asset Register</button>
+            <button class="tab-trigger" data-tab="heatmap">5×5 Heatmap</button>
+            <button class="tab-trigger" data-tab="report">Report</button>
+        </div>
+
+        <div id="dashboard" class="tab-content dashboard-grid grid gap-4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Portfolio Posture</h2>
+                </div>
+                <div class="card-content text-center">
+                    <p class="text-sm text-muted">Average Risk Score (L×I)</p>
+                    <p id="avgRiskScore" class="metric-score">0.00</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Top Risks</h2>
+                </div>
+                <div class="card-content">
+                    <ol id="topRisksList" class="list-decimal"></ol>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Risk Distribution</h2>
+                </div>
+                <div class="card-content">
+                    <svg id="treemapSvg" class="chart" width="100%" height="250"></svg>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Assets by Type</h2>
+                </div>
+                <div class="card-content">
+                    <svg id="barChartSvg" class="chart" width="100%" height="250"></svg>
+                </div>
+            </div>
+        </div>
+
+        <div id="table" class="tab-content">
+            <div class="flex items-center justify-between mb-4">
+                <input id="searchInput" type="text" placeholder="Search assets..." class="input w-64">
+            </div>
+            <div class="flex gap-4 mb-4">
+                <div>
+                    <label for="filterType" class="text-sm">Filter by Type:</label>
+                    <select id="filterType" class="select"></select>
+                </div>
+                <div>
+                    <label for="filterCountry" class="text-sm">Filter by Country:</label>
+                    <select id="filterCountry" class="select"></select>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <button id="addAssetBtn" class="btn btn--primary mt-4">Add Asset</button>
+            <button id="uploadBtn" class="btn btn--outline mt-4">Upload CSV/JSON</button>
+        </div>
+
+        <div id="heatmap" class="tab-content">
+            <p class="text-center mb-4">5×5 Risk Heatmap<br>Click a cell to filter the table.</p>
+            <div id="heatmapGrid" class="heatmap-grid"></div>
+            <div id="tooltip" class="tooltip"></div>
+        </div>
+
+        <div id="report" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Risk Assessment Report</h2>
+                    <p class="text-sm text-muted">A summary of your current portfolio.</p>
+                </div>
+                <div class="card-content">
+                    <pre id="reportContent" class="whitespace-pre-wrap"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="assetModal" class="modal modal--hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">Add New Asset</h2>
+                <button id="closeModalBtn" class="modal-close-btn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="assetForm">
+                <input type="hidden" id="assetId">
+                <div class="form-group">
+                    <label for="assetName">Asset Name</label>
+                    <input id="assetName" name="assetName" type="text" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label for="assetType">Type</label>
+                    <input id="assetType" name="assetType" type="text" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label for="assetCountry">Country</label>
+                    <input id="assetCountry" name="assetCountry" type="text" class="input" required>
+                </div>
+                <div class="form-group">
+                    <label for="assetLocation">Location</label>
+                    <input id="assetLocation" name="assetLocation" type="text" class="input">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="C">Criticality (C)</label>
+                        <input id="C" name="C" type="number" min="1" max="5" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="A">Accessibility (A)</label>
+                        <input id="A" name="A" type="number" min="1" max="5" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="R">Recuperability (R)</label>
+                        <input id="R" name="R" type="number" min="1" max="5" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="V">Vulnerability (V)</label>
+                        <input id="V" name="V" type="number" min="1" max="5" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="E">Effect (E)</label>
+                        <input id="E" name="E" type="number" min="1" max="5" class="input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="Rz">Recognizability (Rz)</label>
+                        <input id="Rz" name="Rz" type="number" min="1" max="5" class="input" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" class="textarea" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button id="cancelFormBtn" type="button" class="btn btn--outline">Cancel</button>
+                    <button type="submit" class="btn btn--primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="uploadModal" class="modal modal--hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upload data (CSV or JSON)</h2>
+                <button id="closeUploadBtn" class="modal-close-btn">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+            </div>
+            <input id="fileInput" type="file" accept=".csv,.json" class="input mb-4">
+            <p class="text-sm text-muted mb-4">CSV headers: name,type,country,location,C,A,R,V,E,Rz,notes</p>
+            <div class="modal-actions">
+                <button id="cancelUploadBtn" type="button" class="btn btn--outline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

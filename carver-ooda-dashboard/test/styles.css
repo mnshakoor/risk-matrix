@@ -1,0 +1,43 @@
+/* Original CSS here, with additions */
+
+/* Add to :root for better icon visibility */
+:root {
+    /* ... existing */
+    --icon-color: var(--text-primary); /* Ensure icons inherit visible color */
+}
+
+/* Buttons: Increase contrast for text/icons */
+.btn {
+    /* ... existing */
+    color: var(--text-primary); /* Force visible text */
+}
+
+.icon {
+    width: 1rem;
+    height: 1rem;
+    stroke: var(--icon-color); /* Bolder stroke for visibility */
+    stroke-width: 2; /* Increased from 1.5 for better render */
+}
+
+/* Text-muted: Boost contrast in dark theme */
+[data-theme="dark"] .text-muted {
+    color: #cbd5e1; /* Lighter than original #94a3b8 */
+}
+
+/* Add media query fix if needed */
+@media (prefers-contrast: more) {
+    .text-muted {
+        color: var(--text-primary);
+    }
+}
+
+/* Score cells: Ensure text visible on bg */
+.score-cell {
+    /* ... existing */
+    color: white; /* Force white for high/medium/low bgs */
+    background-color: var(--color-success); /* Default; override in JS if needed */
+}
+
+.score--high { background-color: var(--color-error); }
+.score--medium { background-color: var(--color-warning); }
+.score--low { background-color: var(--color-success); }
