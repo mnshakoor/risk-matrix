@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OODA CARVER - Radar Dashboard (Dynamic Import + Themes)</title>
+<style>
+/* Theme variables */
+:root {
+  --bg: #0b1220;
+  --card: #101827;
+  --ink: #e5eefc;
+  --muted: #9fb3d1;
+  --accent: #3b82f6;
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --grid: #20304a;
+  --ring: #1b2942;
+  --chip: #1a2234;
+  --border: #2a3b59;
+}
+/* Light theme overrides */
+[data-theme="light"] {
+  --bg: #f7fafc;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --muted: #475569;
+  --accent: #2563eb;
+  --ok: #059669;
+  --warn: #d97706;
+  --bad: #dc2626;
+  --grid: #e5e7eb;
+  --ring: #e2e8f0;
+  --chip: #f1f5f9;
+  --border: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  margin: 0;
+  background: radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,0.06) 10%, transparent), var(--bg);
+  color: var(--ink);
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 22px; margin: 0 0 16px; font-weight: 700; }
+.controls {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 12px; margin-bottom: 16px;
+}
+.select, .btn {
+  padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+}
+.select { background: var(--chip); color: var(--ink); }
+.btn { background: var(--accent); color: #fff; cursor: pointer; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-outline { background: transparent; color: var(--ink); }
+.row { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+.card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)), var(--card);
+         border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.subtitle { color: var(--muted); font-size: 12px; margin-top: -4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; background: var(--chip); border: 1px solid var(--border); padding: 6px 8px; border-radius: 999px; font-size: 12px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
+.kpi-title { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.details p { margin: 6px 0; font-size: 14px; }
+.footer { margin-top: 16px; }
+.small { font-size: 12px; color: var(--muted); }
+canvas { display: block; width: 100%; height: 100%; }
+.radar-wrap { position: relative; height: 480px; }
+#radarCanvas { position: relative; width: 100%; height: 100%; }
+.gauge { width: 100%; height: 160px; }
+.badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+.badge.low { background: #064e3b; color: #a7f3d0; border: 1px solid #065f46; }
+.badge.vlow { background: #064e3b; color: #d1fae5; border: 1px solid #047857; }
+.badge.med { background: #78350f; color: #fde68a; border: 1px solid #b45309; }
+.badge.high { background: #7c2d12; color: #fdba74; border: 1px solid #c2410c; }
+.badge.crit { background: #7f1d1d; color: #fecaca; border: 1px solid #dc2626; }
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.empty { padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--border); background: rgba(0,0,0,0.03); }
+.schema { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; background: var(--chip); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; padding: 10px; overflow:auto; }
+.group { display:flex; gap: 8px; align-items:center; flex-wrap: wrap; }
+@media (max-width: 1000px) {
+  .row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>OODA CARVER - Radar Dashboard</h1>
+
+  <div class="controls card">
+    <div>
+      <label for="assetSelect" class="small">Select Asset</label><br>
+      <select id="assetSelect" class="select" disabled><option>Import data to begin</option></select>
+    </div>
+    <div class="group">
+      <button id="importBtn" class="btn">Import CSV or JSON</button>
+      <button id="schemaBtn" class="btn btn-outline">Schema</button>
+      <input id="fileInput" type="file" accept=".csv,.json,text/csv,application/json" style="display:none">
+    </div>
+    <div class="group" style="justify-self:end">
+      <label for="themeSelect" class="small">Theme</label><br>
+      <select id="themeSelect" class="select">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="auto">Auto</option>
+      </select>
+    </div>
+    <div style="grid-column: 1 / -1; color: var(--muted);" class="small">
+      KPI gauges show scores relative to the max possible for your scale.
+    </div>
+  </div>
+
+  <div id="schemaPanel" class="card" style="display:none">
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <div style="font-weight:700;">Schema and Templates</div>
+      <div class="group">
+        <button id="downloadJsonBtn" class="btn btn-outline">Download JSON schema</button>
+        <button id="downloadCsvBtn" class="btn btn-outline">Download CSV template</button>
+        <button id="schemaClose" class="btn">Hide</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="small" style="margin-bottom:6px;">JSON schema</div>
+        <pre id="jsonSchema" class="schema"></pre>
+      </div>
+      <div>
+        <div class="small" style="margin-bottom:6px;">CSV template</div>
+        <pre id="csvTemplate" class="schema"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <div>
+          <div style="font-weight:700;">CARVER Radar</div>
+          <div class="subtitle">Nested translucent polygons. Axes: C, A, R, V, E, Rz.</div>
+        </div>
+        <div id="riskBadge"></div>
+      </div>
+      <div class="radar-wrap">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+      <div id="legend" class="legend"></div>
+    </div>
+    <div class="grid-2">
+      <div class="kpi-card">
+        <div class="kpi-title">Total CARVER</div>
+        <svg id="g_total" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">P(a)</div>
+        <svg id="g_pa" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Likelihood (L)</div>
+        <svg id="g_L" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Impact (I)</div>
+        <svg id="g_I" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Risk Score (L x I)</div>
+        <svg id="g_score" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Risk Rating</div>
+        <div id="ratingText" style="font-size:28px; font-weight:800; margin-top:14px;"></div>
+        <div class="small" id="ratingScale"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card footer">
+    <div style="font-weight:700; margin-bottom:8px;">Notes and Location</div>
+    <div id="emptyState" class="empty">No data loaded. Click Import to load a CSV or JSON with columns: name, type, country, location, C, A, R, V, E, Rz, notes. Derived fields will be calculated automatically.</div>
+    <div class="info-grid" id="infoGrid" style="display:none">
+      <div class="details">
+        <p><span class="small">Asset</span><br><span id="f_name"></span></p>
+        <p><span class="small">Type</span><br><span id="f_type"></span></p>
+        <p><span class="small">Country</span><br><span id="f_country"></span></p>
+        <p><span class="small">Location</span><br><span id="f_location"></span></p>
+      </div>
+      <div class="details">
+        <p><span class="small">CARVER breakdown</span><br>
+        <div id="f_carver"></div></p>
+        <p><span class="small">Notes</span><br><span id="f_notes"></span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Theme handling */
+const themeSelect = document.getElementById('themeSelect');
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+let themeMode = localStorage.getItem('themeMode') || 'dark';
+function applyTheme(mode) {
+  if (mode === 'auto') {
+    document.documentElement.setAttribute('data-theme', prefersDark.matches ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', mode);
+  }
+}
+function setTheme(mode) {
+  themeMode = mode;
+  localStorage.setItem('themeMode', mode);
+  applyTheme(mode);
+}
+prefersDark.addEventListener('change', () => { if (themeMode === 'auto') applyTheme('auto'); });
+themeSelect.value = themeMode;
+applyTheme(themeMode);
+themeSelect.addEventListener('change', e => setTheme(e.target.value));
+
+/* Data, import, schema */
+let DATA = [];
+let SCALE = 5;
+
+// Map alternate headers to canonical fields
+const HEADER_MAP = {
+  'name':'name','asset':'name','asset name':'name',
+  'type':'type','category':'type',
+  'country':'country','iso3':'country',
+  'location':'location','site':'location',
+  'c':'C','criticality':'C',
+  'a':'A','accessibility':'A',
+  'r':'R','recuperability':'R',
+  'v':'V','vulnerability':'V',
+  'e':'E','effect':'E',
+  'rz':'Rz','recognizability':'Rz',
+  'notes':'notes','remarks':'notes','comment':'notes',
+  'l':'L','likelihood':'L',
+  'i':'I','impact':'I',
+  'score':'score','risk':'score',
+  'totalcarver':'totalCarver','total':'totalCarver',
+  'pa':'pa','p(a)':'pa'
+};
+
+const sel = document.getElementById('assetSelect');
+const importBtn = document.getElementById('importBtn');
+const fileInput = document.getElementById('fileInput');
+const schemaBtn = document.getElementById('schemaBtn');
+const schemaPanel = document.getElementById('schemaPanel');
+const schemaClose = document.getElementById('schemaClose');
+const jsonSchemaPre = document.getElementById('jsonSchema');
+const csvTemplatePre = document.getElementById('csvTemplate');
+const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+schemaBtn.addEventListener('click', ()=> {
+  schemaPanel.style.display = schemaPanel.style.display === 'none' ? '' : 'none';
+});
+schemaClose.addEventListener('click', ()=> schemaPanel.style.display = 'none');
+
+const JSON_SCHEMA = {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CARVER Asset List",
+  "description": "Array or object with 'assets' of CARVER asset records",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Asset" }
+    },
+    {
+      "type": "object",
+      "required": ["assets"],
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Asset" }
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "Asset": {
+      "type": "object",
+      "required": ["name","type","country","location","C","A","R","V","E","Rz"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "country": { "type": "string" },
+        "location": { "type": "string" },
+        "C": { "type": "number", "minimum": 0 },
+        "A": { "type": "number", "minimum": 0 },
+        "R": { "type": "number", "minimum": 0 },
+        "V": { "type": "number", "minimum": 0 },
+        "E": { "type": "number", "minimum": 0 },
+        "Rz": { "type": "number", "minimum": 0 },
+        "notes": { "type": "string" },
+        "L": { "type": "number", "minimum": 0 },
+        "I": { "type": "number", "minimum": 0 },
+        "totalCarver": { "type": "number", "minimum": 0 },
+        "pa": { "type": "number", "minimum": 0 },
+        "score": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+};
+
+const CSV_TEMPLATE = `name,type,country,location,C,A,R,V,E,Rz,notes
+Kivu Ridge VHF Site,VHF Comms,DRC,Bukavu,5,4,4,3,5,3,Backhaul depends on shared power
+Highland Fuel Depot,Logistics,Peru,Arequipa,4,3,4,3,4,2,Single road segment dependency
+`;
+
+jsonSchemaPre.textContent = JSON.stringify(JSON_SCHEMA, null, 2);
+csvTemplatePre.textContent = CSV_TEMPLATE;
+
+function download(filename, content, type='application/octet-stream;charset=utf-8') {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+downloadJsonBtn.addEventListener('click', ()=> download('carver_schema.json', JSON.stringify(JSON_SCHEMA, null, 2), 'application/json;charset=utf-8'));
+downloadCsvBtn.addEventListener('click', ()=> download('carver_template.csv', CSV_TEMPLATE, 'text/csv;charset=utf-8'));
+
+importBtn.addEventListener('click', ()=> fileInput.click());
+
+fileInput.addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const text = await f.text();
+  try {
+    const name = (f.name || '').toLowerCase();
+    const type = (f.type || '').toLowerCase();
+    const isJson = type.includes('json') || name.endsWith('.json');
+    const isCsv  = type.includes('csv')  || name.endsWith('.csv');
+    let rows = [];
+    if (isJson) {
+      const json = JSON.parse(text);
+      rows = Array.isArray(json) ? json : (Array.isArray(json.assets) ? json.assets : []);
+    } else if (isCsv) {
+      const table = parseCSV(text);
+      const headers = table.shift().map(h => String(h||'').trim());
+      for (const line of table) {
+        const rec = {};
+        headers.forEach((h, idx) => { rec[h] = line[idx] != null ? line[idx] : ''; });
+        rows.push(rec);
+      }
+    } else {
+      // try JSON then CSV
+      try { const json = JSON.parse(text); rows = Array.isArray(json) ? json : (Array.isArray(json.assets) ? json.assets : []); }
+      catch(_) {
+        const table = parseCSV(text);
+        const headers = table.shift().map(h => String(h||'').trim());
+        for (const line of table) { const rec = {}; headers.forEach((h, idx) => rec[h]= line[idx]??''); rows.push(rec); }
+      }
+    }
+    if (!rows.length) throw new Error('No records found in the file');
+
+    // detect scale then normalize
+    SCALE = detectScale(rows.map(r => {
+      const tmp = {}; for (const k in r) tmp[(HEADER_MAP[k?.toLowerCase()]||k)] = r[k]; return tmp;
+    }));
+    DATA = rows.map(normalize);
+
+    // populate select
+    sel.innerHTML = `<option value="__ALL__">All Assets</option>` + DATA.map((r,i)=>`<option value="${i}">${r.name || '(unnamed)'}</option>`).join('');
+    sel.disabled = false;
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('infoGrid').style.display = '';
+
+    updateView();
+  } catch (err) {
+    alert('Import failed: ' + err.message);
+    console.error(err);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+sel.addEventListener('change', updateView);
+
+// CSV parser that handles quotes and commas
+function parseCSV(text) {
+  const rows = [];
+  let cur = '', inQuotes = false;
+  const pushCell = (row, cell) => { row.push(cell); };
+  const pushRow = (row) => { rows.push(row); };
+  let row = [];
+  for (let i=0;i<text.length;i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
+      } else { cur += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { pushCell(row, cur); cur = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (cur !== '' || row.length>0) { pushCell(row, cur); pushRow(row); row = []; cur = ''; }
+        if (ch === '\r' && text[i+1] === '\n') i++;
+      } else { cur += ch; }
+    }
+  }
+  if (cur !== '' || row.length>0) { pushCell(row, cur); pushRow(row); }
+  return rows.filter(r => r.length && r.some(x => String(x).trim() !== ''));
+}
+
+// Utilities
+function num(x) { const v = Number(String(x).trim()); return isFinite(v) ? v : 0; }
+function clampByScale(v) { v = Math.max(0, v); return Math.min(SCALE, v); }
+function detectScale(rows) {
+  let m = 0;
+  rows.forEach(r => ['C','A','R','V','E','Rz'].forEach(k => { m = Math.max(m, num(r[k])); }));
+  return m > 5 ? 10 : 5;
+}
+function derive(row) {
+  const L = (num(row.A) + num(row.V) + num(row.Rz)) / 3;
+  const I = (num(row.C) + num(row.E) + num(row.R)) / 3;
+  const total = num(row.C)+num(row.A)+num(row.R)+num(row.V)+num(row.E)+num(row.Rz);
+  const pa = (SCALE>0) ? (total / (6*SCALE)) : 0;
+  const score = L * I;
+  return {
+    L: row.L != null && row.L !== '' ? num(row.L) : L,
+    I: row.I != null && row.I !== '' ? num(row.I) : I,
+    totalCarver: row.totalCarver != null && row.totalCarver !== '' ? num(row.totalCarver) : total,
+    pa: row.pa != null && row.pa !== '' ? num(row.pa) : pa,
+    score: row.score != null && row.score !== '' ? num(row.score) : score
+  };
+}
+function normalize(rec) {
+  const out = { name:'', type:'', country:'', location:'', C:0,A:0,R:0,V:0,E:0,Rz:0, notes:'' };
+  for (const k in rec) {
+    const canon = HEADER_MAP[String(k).trim().toLowerCase()] || k;
+    out[canon] = rec[k];
+  }
+  out.C = clampByScale(num(out.C));
+  out.A = clampByScale(num(out.A));
+  out.R = clampByScale(num(out.R));
+  out.V = clampByScale(num(out.V));
+  out.E = clampByScale(num(out.E));
+  out.Rz = clampByScale(num(out.Rz));
+  const d = derive(out);
+  out.L = d.L; out.I = d.I; out.totalCarver = d.totalCarver; out.pa = d.pa; out.score = d.score;
+  return out;
+}
+
+// Colors and ratings
+const PALETTE = ['#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#14b8a6','#a855f7','#f43f5e','#0ea5e9','#84cc16'];
+function hexToRgba(hex, a) {
+  const m = hex.replace('#','');
+  const r = parseInt(m.substring(0,2),16), g = parseInt(m.substring(2,4),16), b = parseInt(m.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function maxRisk(scale) { return Math.pow(scale,2); }
+function ratingOf(score) {
+  const mx = maxRisk(SCALE);
+  const f = mx ? (score / mx) : 0;
+  if (f >= 0.8) return 'Critical';
+  if (f >= 0.6) return 'High';
+  if (f >= 0.4) return 'Medium';
+  if (f >= 0.2) return 'Low';
+  return 'Very Low';
+}
+function badgeHtml(label) {
+  const map = {'Very Low':'vlow', 'Low':'low', 'Medium':'med', 'High':'high', 'Critical':'crit'};
+  return `<span class="badge ${map[label]||'low'}">${label}</span>`;
+}
+
+// Radar drawing
+const radarCanvas = document.getElementById('radarCanvas');
+const ctx = radarCanvas.getContext('2d');
+function resizeCanvas() { 
+  const dpr = window.devicePixelRatio || 1;
+  const rect = radarCanvas.getBoundingClientRect();
+  radarCanvas.width = rect.width * dpr;
+  radarCanvas.height = rect.height * dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', ()=>{ resizeCanvas(); updateView(); });
+function drawRadarGrid(cx, cy, radius, axes) {
+  ctx.save();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ring') || '#1b2942';
+  ctx.lineWidth = 1;
+  const rings = 5;
+  for (let i=1;i<=rings;i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * i/rings, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid') || '#20304a';
+  for (let a=0;a<axes.length;a++) {
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx + Math.cos(ang)*radius, cy + Math.sin(ang)*radius);
+    ctx.stroke();
+  }
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted') || '#9fb3d1';
+  ctx.font = '12px sans-serif';
+  for (let a=0;a<axes.length;a++) {
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    const lx = cx + Math.cos(ang)*(radius+14);
+    const ly = cy + Math.sin(ang)*(radius+14);
+    const label = axes[a];
+    const w = ctx.measureText(label).width;
+    ctx.fillText(label, lx - w/2, ly + 4);
+  }
+  ctx.restore();
+}
+function drawRadarPolygon(cx, cy, radius, axes, values, color) {
+  ctx.save();
+  const points = [];
+  for (let a=0;a<axes.length;a++) {
+    const val = Number(values[a]) || 0;
+    const r = (val / SCALE) * radius;
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    const x = cx + Math.cos(ang) * r;
+    const y = cy + Math.sin(ang) * r;
+    points.push([x,y]);
+  }
+  ctx.beginPath();
+  points.forEach((p,i)=> i===0 ? ctx.moveTo(p[0],p[1]) : ctx.lineTo(p[0],p[1]));
+  ctx.closePath();
+  ctx.fillStyle = hexToRgba(color, 0.18);
+  ctx.fill();
+  ctx.strokeStyle = hexToRgba(color, 0.9);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = hexToRgba(color, 0.85);
+  points.forEach(p=>{ ctx.beginPath(); ctx.arc(p[0],p[1],2.2,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
+}
+
+// Gauges
+function drawGauge(elId, value, maxValue) {
+  const el = document.getElementById(elId);
+  const width = el.clientWidth || 280;
+  const height = el.clientHeight || 160;
+  el.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  while (el.firstChild) el.removeChild(el.firstChild);
+  const cx = width/2, cy = height*0.95, r = Math.min(width*0.45, height*0.9);
+  const bands = [
+    { up: 0.2, color: '#10b981' },
+    { up: 0.4, color: '#ca8a04' },
+    { up: 0.6, color: '#d97706' },
+    { up: 0.8, color: '#ea580c' },
+    { up: 1.0, color: '#dc2626' },
+  ];
+  let start = Math.PI;
+  bands.forEach(b => {
+    const end = Math.PI + Math.PI * b.up;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const largeArc = end - start > Math.PI ? 1 : 0;
+    const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
+    const x2 = cx + r*Math.cos(end),   y2 = cy + r*Math.sin(end);
+    path.setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`);
+    path.setAttribute('stroke', b.color); path.setAttribute('stroke-width','12'); path.setAttribute('fill','none'); path.setAttribute('opacity','0.8');
+    el.appendChild(path);
+    start = end;
+  });
+  for (let i=0;i<=5;i++) {
+    const t = Math.PI + Math.PI*(i/5);
+    const x1 = cx + (r-6)*Math.cos(t), y1 = cy + (r-6)*Math.sin(t);
+    const x2 = cx + (r+6)*Math.cos(t), y2 = cy + (r+6)*Math.sin(t);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke', '#6b7280'); line.setAttribute('stroke-width','1');
+    el.appendChild(line);
+  }
+  const frac = Math.max(0, Math.min(1, maxValue ? (value/maxValue) : 0));
+  const theta = Math.PI + Math.PI * frac;
+  const nx = cx + (r-14) * Math.cos(theta), ny = cy + (r-14) * Math.sin(theta);
+  const needle = document.createElementNS('http://www.w3.org/2000/svg','line');
+  needle.setAttribute('x1', cx); needle.setAttribute('y1', cy);
+  needle.setAttribute('x2', nx); needle.setAttribute('y2', ny);
+  needle.setAttribute('stroke', '#e5eefc'); needle.setAttribute('stroke-width', '2.5');
+  el.appendChild(needle);
+  const hub = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  hub.setAttribute('cx', cx); hub.setAttribute('cy', cy); hub.setAttribute('r', 4); hub.setAttribute('fill', '#e5eefc');
+  el.appendChild(hub);
+  const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.setAttribute('x', cx); txt.setAttribute('y', cy - r*0.55);
+  txt.setAttribute('text-anchor','middle'); txt.setAttribute('font-size','14'); txt.setAttribute('fill', getComputedStyle(document.documentElement).getPropertyValue('--ink') || '#e5eefc');
+  txt.textContent = `${value.toFixed(2)} / ${maxValue}`;
+  el.appendChild(txt);
+}
+
+// Update view
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0) / arr.length : 0; }
+
+function updateView() {
+  resizeCanvas();
+  const rect = radarCanvas.getBoundingClientRect();
+  const cx = rect.width/2, cy = rect.height/2, radius = Math.min(rect.width, rect.height)*0.35;
+  ctx.clearRect(0,0,rect.width,rect.height);
+  const axes = ['C','A','R','V','E','Rz'];
+  drawRadarGrid(cx, cy, radius, axes);
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+
+  if (!DATA.length) {
+    document.getElementById('ratingText').textContent = '';
+    document.getElementById('ratingScale').textContent = '';
+    document.getElementById('riskBadge').innerHTML = '';
+    ['g_total','g_pa','g_L','g_I','g_score'].forEach(id => { const el = document.getElementById(id); while(el.firstChild) el.removeChild(el.firstChild); });
+    return;
+  }
+
+  const val = sel.value || '__ALL__';
+  if (val === '__ALL__') {
+    // overlay all
+    DATA.forEach((r, i) => {
+      const color = PALETTE[i % PALETTE.length];
+      drawRadarPolygon(cx, cy, radius, axes, [r.C,r.A,r.R,r.V,r.E,r.Rz], color);
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<span class="swatch" style="background:${color}"></span>${r.name || '(unnamed)'}`;
+      legend.appendChild(item);
+    });
+    // Averages for KPIs and Notes
+    const L = avg(DATA.map(r=> r.L||0));
+    const I = avg(DATA.map(r=> r.I||0));
+    const score = avg(DATA.map(r=> r.score||0));
+    const tcarv = avg(DATA.map(r=> r.totalCarver||0));
+    const pa = avg(DATA.map(r=> r.pa||0));
+    setKpis(L,I,score,tcarv,pa);
+    setInfo({
+      name:'All Assets (avg)',
+      type:'-',
+      country:'-',
+      location:'-',
+      notes:'Portfolio view averages across loaded assets',
+      C: avg(DATA.map(r=> r.C||0)),
+      A: avg(DATA.map(r=> r.A||0)),
+      R: avg(DATA.map(r=> r.R||0)),
+      V: avg(DATA.map(r=> r.V||0)),
+      E: avg(DATA.map(r=> r.E||0)),
+      Rz: avg(DATA.map(r=> r.Rz||0))
+    }, true);
+  } else {
+    const r = DATA[Number(val)] || DATA[0];
+    const color = PALETTE[Number(val) % PALETTE.length];
+    drawRadarPolygon(cx, cy, radius, axes, [r.C,r.A,r.R,r.V,r.E,r.Rz], color);
+    setKpis(r.L||0, r.I||0, r.score||0, r.totalCarver||0, r.pa||0);
+    setInfo(r, false);
+  }
+}
+
+function setKpis(L, I, score, totalCarver, pa) {
+  const maxScore = maxRisk(SCALE);
+  document.getElementById('ratingText').textContent = ratingOf(score);
+  document.getElementById('ratingScale').textContent = `Scale aware thresholds - ${maxScore.toFixed(0)} max risk`;
+  document.getElementById('riskBadge').innerHTML = badgeHtml(ratingOf(score));
+  drawGauge('g_total', totalCarver, 6*SCALE);
+  drawGauge('g_pa', pa, 1.0);
+  drawGauge('g_L', L, SCALE);
+  drawGauge('g_I', I, SCALE);
+  drawGauge('g_score', score, maxScore);
+}
+
+function setInfo(r, isAvg) {
+  document.getElementById('f_name').textContent = r.name || '';
+  document.getElementById('f_type').textContent = r.type || '';
+  document.getElementById('f_country').textContent = r.country || '';
+  document.getElementById('f_location').textContent = r.location || '';
+  document.getElementById('f_notes').textContent = r.notes || '';
+
+  const full = [
+    ['C','Criticality'],
+    ['A','Accessibility'],
+    ['R','Recuperability'],
+    ['V','Vulnerability'],
+    ['E','Effect'],
+    ['Rz','Recognizability']
+  ];
+  const fmt = v => (v==null?'-': Number(v).toFixed(2));
+  const lines = full.map(([k, label]) => `${label}: ${fmt(r[k])}`);
+  document.getElementById('f_carver').innerHTML = `<div class="schema" style="padding:8px; font-size:13px">${lines.join('<br>')}</div>`;
+}
+
+// Init
+resizeCanvas();
+updateView();
+</script>
+</body>
+</html>

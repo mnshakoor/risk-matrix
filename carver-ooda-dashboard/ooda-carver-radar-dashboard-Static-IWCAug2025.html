@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OODA CARVER - Radar Dashboard</title>
+<style>
+:root {
+  --bg: #0b1220;
+  --card: #101827;
+  --ink: #e5eefc;
+  --muted: #9fb3d1;
+  --accent: #3b82f6;
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --grid: #20304a;
+  --ring: #1b2942;
+  --chip: #1a2234;
+  --border: #2a3b59;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  margin: 0;
+  background: radial-gradient(1200px 600px at 20% -10%, #16223a 10%, transparent), var(--bg);
+  color: var(--ink);
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 22px; margin: 0 0 16px; font-weight: 700; }
+.controls {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px;
+}
+.select { padding: 10px 12px; background: var(--chip); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; }
+.row { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+.card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)), var(--card);
+         border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+.subtitle { color: var(--muted); font-size: 12px; margin-top: -4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; background: var(--chip); border: 1px solid var(--border); padding: 6px 8px; border-radius: 999px; font-size: 12px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
+.kpi-title { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.details p { margin: 6px 0; font-size: 14px; }
+.footer { margin-top: 16px; }
+.small { font-size: 12px; color: var(--muted); }
+canvas { display: block; width: 100%; height: 100%; }
+.radar-wrap { position: relative; height: 480px; }
+#radarCanvas { position: relative; width: 100%; height: 100%; }
+.gauge { width: 100%; height: 160px; }
+.badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+.badge.low { background: #064e3b; color: #a7f3d0; border: 1px solid #065f46; }
+.badge.vlow { background: #064e3b; color: #d1fae5; border: 1px solid #047857; }
+.badge.med { background: #78350f; color: #fde68a; border: 1px solid #b45309; }
+.badge.high { background: #7c2d12; color: #fdba74; border: 1px solid #c2410c; }
+.badge.crit { background: #7f1d1d; color: #fecaca; border: 1px solid #dc2626; }
+.info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 1000px) {
+  .row { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>OODA CARVER - Radar Dashboard</h1>
+  <div class="controls card">
+    <div>
+      <label for="assetSelect" class="small">Select Asset</label><br>
+      <select id="assetSelect" class="select"></select>
+    </div>
+    <div style="flex:1"></div>
+    <div class="small">KPI gauges show score relative to maximum possible value based on the data scale.</div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <div>
+          <div style="font-weight:700;">CARVER Radar</div>
+          <div class="subtitle">Nested translucent polygons. Axes: C, A, R, V, E, Rz.</div>
+        </div>
+        <div id="riskBadge"></div>
+      </div>
+      <div class="radar-wrap">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+      <div id="legend" class="legend"></div>
+    </div>
+    <div class="grid-2">
+      <div class="kpi-card">
+        <div class="kpi-title">Total CARVER</div>
+        <svg id="g_total" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">P(a)</div>
+        <svg id="g_pa" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Likelihood (L)</div>
+        <svg id="g_L" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Impact (I)</div>
+        <svg id="g_I" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Risk Score (L x I)</div>
+        <svg id="g_score" class="gauge"></svg>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-title">Risk Rating</div>
+        <div id="ratingText" style="font-size:28px; font-weight:800; margin-top:14px;"></div>
+        <div class="small" id="ratingScale"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card footer">
+    <div style="font-weight:700; margin-bottom:8px;">Notes & Location</div>
+    <div class="info-grid">
+      <div class="details">
+        <p><span class="small">Asset</span><br><span id="f_name"></span></p>
+        <p><span class="small">Type</span><br><span id="f_type"></span></p>
+        <p><span class="small">Country</span><br><span id="f_country"></span></p>
+      </div>
+      <div class="details">
+        <p><span class="small">Location</span><br><span id="f_location"></span></p>
+        <p><span class="small">Notes</span><br><span id="f_notes"></span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="data" type="application/json">[{"name": "Kivu Ridge VHF Site", "type": "VHF Comms", "country": "DRC", "location": "Bukavu", "C": 5, "A": 4, "R": 4, "V": 3, "E": 5, "Rz": 3, "totalCarver": 24, "pa": 0.8, "L": 3.33, "I": 4.67, "score": 15.55, "notes": "Backhaul shares tower power with clinic"}, {"name": "Highland Fuel Depot", "type": "Logistics", "country": "Peru", "location": "Arequipa", "C": 4, "A": 3, "R": 4, "V": 3, "E": 4, "Rz": 2, "totalCarver": 20, "pa": 0.667, "L": 2.67, "I": 4.0, "score": 10.68, "notes": "Fuel supply depends on single road segment"}, {"name": "Maritime Port Infrastructure Vulnerability", "type": "Critical Infrastructure", "country": "USA", "location": "Multiple (Ports)", "C": 5, "A": 4, "R": 3, "V": 4, "E": 5, "Rz": 4, "totalCarver": 25, "pa": 0.833, "L": 4.0, "I": 4.33, "score": 17.32, "notes": "80% of cranes made in PRC; potential remote access disruption"}, {"name": "GPS Signal Jamming & Spoofing", "type": "Navigation Systems", "country": "USA", "location": "National", "C": 5, "A": 5, "R": 4, "V": 4, "E": 5, "Rz": 5, "totalCarver": 28, "pa": 0.933, "L": 4.67, "I": 4.67, "score": 21.81, "notes": "Potential to cause transport accidents, economic disruption, and public panic"}, {"name": "Offshore Oil Platform Cyber Vulnerabilities", "type": "Energy Infrastructure", "country": "USA", "location": "Gulf of Mexico & Offshore Sites", "C": 5, "A": 4, "R": 3, "V": 4, "E": 5, "Rz": 4, "totalCarver": 25, "pa": 0.833, "L": 4.0, "I": 4.33, "score": 17.32, "notes": "Comparable to Deepwater Horizon-level disaster; cleanup costs >$65B"}, {"name": "CUAS Homeland Defense Gap", "type": "Airspace Security", "country": "USA", "location": "Nationwide", "C": 5, "A": 5, "R": 4, "V": 4, "E": 5, "Rz": 5, "totalCarver": 28, "pa": 0.933, "L": 4.67, "I": 4.67, "score": 21.81, "notes": "500,000 drone sightings/day; lack of fully integrated counter-UAS capabilities"}, {"name": "Agriculture Supply Chain Hybrid Threats", "type": "Critical Infrastructure", "country": "USA", "location": "Nationwide", "C": 5, "A": 4, "R": 3, "V": 4, "E": 5, "Rz": 4, "totalCarver": 25, "pa": 0.833, "L": 4.0, "I": 4.33, "score": 17.32, "notes": "PRC hybrid playbook targeting U.S. agriculture via supply chain dominance, biotech IP theft"}, {"name": "Mass Migration Adversary-Induced Scenarios", "type": "Border Security", "country": "USA", "location": "Southern Border", "C": 4, "A": 4, "R": 3, "V": 4, "E": 4, "Rz": 3, "totalCarver": 22, "pa": 0.733, "L": 3.67, "I": 3.67, "score": 13.47, "notes": "Could overwhelm border security resources; historical precedent from Mariel boatlift"}, {"name": "Information Operations Targeting Public Trust", "type": "Psychological Operations", "country": "USA", "location": "Nationwide", "C": 5, "A": 5, "R": 4, "V": 4, "E": 5, "Rz": 5, "totalCarver": 28, "pa": 0.933, "L": 4.67, "I": 4.67, "score": 21.81, "notes": "Disinformation/misinformation causing panic & undermining institutions; Colonial Pipeline example"}, {"name": "Aviation Cybersecurity Weaknesses", "type": "Transport Security", "country": "USA", "location": "Airports Nationwide", "C": 5, "A": 4, "R": 4, "V": 4, "E": 5, "Rz": 4, "totalCarver": 26, "pa": 0.867, "L": 4.0, "I": 4.67, "score": 18.68, "notes": "AI/insider threats to aviation IT/OT systems; overconfidence in existing security"}]</script>
+
+<script>
+// Read embedded data
+const DATA = JSON.parse(document.getElementById('data').textContent);
+
+// Utility - detect scale (5 or 10) from CARVER fields
+function detectScale(rows) {
+  let m = 0;
+  rows.forEach(r => ['C','A','R','V','E','Rz'].forEach(k => { m = Math.max(m, Number(r[k])||0); }));
+  return m > 5 ? 10 : 5;
+}
+const SCALE = detectScale(DATA);
+
+// Colors
+const PALETTE = [
+  '#3b82f6','#22c55e','#eab308','#f97316','#ef4444','#14b8a6','#a855f7','#f43f5e','#0ea5e9','#84cc16'
+];
+function hexToRgba(hex, a) {
+  const m = hex.replace('#','');
+  const r = parseInt(m.substring(0,2),16), g = parseInt(m.substring(2,4),16), b = parseInt(m.substring(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Risk rating scaled to max risk
+function maxRisk(scale) { return Math.pow(scale,2); } // L in [1..scale], I in [1..scale] - product
+function ratingOf(score) {
+  const mx = maxRisk(SCALE);
+  const f = score / mx;
+  if (f >= 0.8) return 'Critical';
+  if (f >= 0.6) return 'High';
+  if (f >= 0.4) return 'Medium';
+  if (f >= 0.2) return 'Low';
+  return 'Very Low';
+}
+function badgeHtml(label) {
+  const l = label;
+  const map = {'Very Low':'vlow', 'Low':'low', 'Medium':'med', 'High':'high', 'Critical':'crit'};
+  return `<span class="badge ${map[l]||'low'}">${l}</span>`;
+}
+
+// Populate select
+const sel = document.getElementById('assetSelect');
+sel.innerHTML = `<option value="__ALL__">All Assets</option>` + DATA.map((r,i)=>`<option value="${i}">${r.name}</option>`).join('');
+sel.addEventListener('change', updateView);
+
+// Radar chart drawing
+const radarCanvas = document.getElementById('radarCanvas');
+const ctx = radarCanvas.getContext('2d');
+
+function resizeCanvas() { 
+  const dpr = window.devicePixelRatio || 1;
+  const rect = radarCanvas.getBoundingClientRect();
+  radarCanvas.width = rect.width * dpr;
+  radarCanvas.height = rect.height * dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', ()=>{ resizeCanvas(); updateView(); });
+
+// Draw radar background grid
+function drawRadarGrid(cx, cy, radius, axes) {
+  ctx.save();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--ring') || '#1b2942';
+  ctx.lineWidth = 1;
+  // rings
+  const rings = 5;
+  for (let i=1;i<=rings;i++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * i/rings, 0, Math.PI*2);
+    ctx.stroke();
+  }
+  // axes
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid') || '#20304a';
+  for (let a=0;a<axes.length;a++) {
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx + Math.cos(ang)*radius, cy + Math.sin(ang)*radius);
+    ctx.stroke();
+  }
+  // labels
+  ctx.fillStyle = '#9fb3d1';
+  ctx.font = '12px sans-serif';
+  for (let a=0;a<axes.length;a++) {
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    const lx = cx + Math.cos(ang)*(radius+14);
+    const ly = cy + Math.sin(ang)*(radius+14);
+    const label = axes[a];
+    const w = ctx.measureText(label).width;
+    ctx.fillText(label, lx - w/2, ly + 4);
+  }
+  ctx.restore();
+}
+
+// Draw one radar polygon
+function drawRadarPolygon(cx, cy, radius, axes, values, color) {
+  ctx.save();
+  const points = [];
+  for (let a=0;a<axes.length;a++) {
+    const val = Number(values[a]) || 0;
+    const r = (val / SCALE) * radius;
+    const ang = -Math.PI/2 + a * 2*Math.PI/axes.length;
+    const x = cx + Math.cos(ang) * r;
+    const y = cy + Math.sin(ang) * r;
+    points.push([x,y]);
+  }
+  // fill
+  ctx.beginPath();
+  points.forEach((p,i)=> i===0 ? ctx.moveTo(p[0],p[1]) : ctx.lineTo(p[0],p[1]));
+  ctx.closePath();
+  ctx.fillStyle = hexToRgba(color, 0.18);
+  ctx.fill();
+  // stroke
+  ctx.strokeStyle = hexToRgba(color, 0.9);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // vertices
+  ctx.fillStyle = hexToRgba(color, 0.85);
+  points.forEach(p=>{ ctx.beginPath(); ctx.arc(p[0],p[1],2.2,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
+}
+
+// Gauges
+function drawGauge(elId, value, maxValue) {
+  const el = document.getElementById(elId);
+  const width = el.clientWidth || 280;
+  const height = el.clientHeight || 160;
+  el.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  while (el.firstChild) el.removeChild(el.firstChild);
+  const cx = width/2, cy = height*0.95, r = Math.min(width*0.45, height*0.9);
+  // arcs bands by rating
+  const bands = [
+    { up: 0.2, color: '#10b981' }, // vlow
+    { up: 0.4, color: '#ca8a04' }, // low
+    { up: 0.6, color: '#d97706' }, // med
+    { up: 0.8, color: '#ea580c' }, // high
+    { up: 1.0, color: '#dc2626' }, // crit
+  ];
+  let start = Math.PI;
+  bands.forEach(b => {
+    const end = Math.PI + Math.PI * b.up;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const largeArc = end - start > Math.PI ? 1 : 0;
+    const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
+    const x2 = cx + r*Math.cos(end),   y2 = cy + r*Math.sin(end);
+    path.setAttribute('d', `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`);
+    path.setAttribute('stroke', b.color); path.setAttribute('stroke-width','12'); path.setAttribute('fill','none'); path.setAttribute('opacity','0.8');
+    el.appendChild(path);
+    start = end;
+  });
+  // ticks
+  for (let i=0;i<=5;i++) {
+    const t = Math.PI + Math.PI*(i/5);
+    const x1 = cx + (r-6)*Math.cos(t), y1 = cy + (r-6)*Math.sin(t);
+    const x2 = cx + (r+6)*Math.cos(t), y2 = cy + (r+6)*Math.sin(t);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke', '#6b7280'); line.setAttribute('stroke-width','1');
+    el.appendChild(line);
+  }
+  // needle
+  const frac = Math.max(0, Math.min(1, value/maxValue));
+  const theta = Math.PI + Math.PI * frac;
+  const nx = cx + (r-14) * Math.cos(theta), ny = cy + (r-14) * Math.sin(theta);
+  const needle = document.createElementNS('http://www.w3.org/2000/svg','line');
+  needle.setAttribute('x1', cx); needle.setAttribute('y1', cy);
+  needle.setAttribute('x2', nx); needle.setAttribute('y2', ny);
+  needle.setAttribute('stroke', '#e5eefc'); needle.setAttribute('stroke-width', '2.5');
+  el.appendChild(needle);
+  const hub = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  hub.setAttribute('cx', cx); hub.setAttribute('cy', cy); hub.setAttribute('r', 4); hub.setAttribute('fill', '#e5eefc');
+  el.appendChild(hub);
+  // label
+  const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+  txt.setAttribute('x', cx); txt.setAttribute('y', cy - r*0.55);
+  txt.setAttribute('text-anchor','middle'); txt.setAttribute('font-size','14'); txt.setAttribute('fill','#e5eefc');
+  txt.textContent = `${value.toFixed(2)} / ${maxValue}`;
+  el.appendChild(txt);
+}
+
+// Update everything
+function updateView() {
+  const val = sel.value;
+  // Legend and radar
+  resizeCanvas();
+  const rect = radarCanvas.getBoundingClientRect();
+  const cx = rect.width/2, cy = rect.height/2, radius = Math.min(rect.width, rect.height)*0.35;
+  ctx.clearRect(0,0,rect.width,rect.height);
+  const axes = ['C','A','R','V','E','Rz'];
+  drawRadarGrid(cx, cy, radius, axes);
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  let rows;
+  if (val === '__ALL__') {
+    rows = DATA;
+    rows.forEach((r, i) => {
+      const color = PALETTE[i % PALETTE.length];
+      drawRadarPolygon(cx, cy, radius, axes, [r.C,r.A,r.R,r.V,r.E,r.Rz], color);
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<span class="swatch" style="background:${color}"></span>${r.name}`;
+      legend.appendChild(item);
+    });
+    // KPIs default to dataset average
+    const avg = (arr) => arr.reduce((a,b)=>a+b,0)/arr.length;
+    const L = avg(rows.map(r=> Number(r.L)||0));
+    const I = avg(rows.map(r=> Number(r.I)||0));
+    const score = avg(rows.map(r=> Number(r.score)||0));
+    const tcarv = avg(rows.map(r=> Number(r.totalCarver)||0));
+    const pa = avg(rows.map(r=> Number(r.pa)||0));
+    setKpis(L,I,score,tcarv,pa,'Portfolio');
+    setInfo({name:'All Assets', type:'-', country:'-', location:'-', notes:'Portfolio view - averages across assets'});
+  } else {
+    const r = DATA[Number(val)];
+    const color = PALETTE[Number(val) % PALETTE.length];
+    drawRadarPolygon(cx, cy, radius, axes, [r.C,r.A,r.R,r.V,r.E,r.Rz], color);
+    setKpis(Number(r.L)||0, Number(r.I)||0, Number(r.score)||0, Number(r.totalCarver)||0, Number(r.pa)||0, r.name);
+    setInfo(r);
+  }
+}
+
+function maxTotalCarver() { return SCALE * 6; }
+function setKpis(L, I, score, totalCarver, pa, label) {
+  const maxScore = maxRisk(SCALE);
+  document.getElementById('ratingText').textContent = ratingOf(score);
+  document.getElementById('ratingScale').textContent = `Scale aware thresholds - ${maxScore.toFixed(0)} max risk`;
+  document.getElementById('riskBadge').innerHTML = badgeHtml(ratingOf(score));
+  drawGauge('g_total', totalCarver, maxTotalCarver());
+  drawGauge('g_pa', pa, 1.0);
+  drawGauge('g_L', L, SCALE);
+  drawGauge('g_I', I, SCALE);
+  drawGauge('g_score', score, maxScore);
+}
+
+function setInfo(r) {
+  document.getElementById('f_name').textContent = r.name || '';
+  document.getElementById('f_type').textContent = r.type || '';
+  document.getElementById('f_country').textContent = r.country || '';
+  document.getElementById('f_location').textContent = r.location || '';
+  document.getElementById('f_notes').textContent = r.notes || '';
+}
+
+resizeCanvas();
+updateView();
+</script>
+</body>
+</html>
